@@ -1,0 +1,51 @@
+# ============================================================
+#  Unity 工程 .gitignore
+#  作用：让 GitHub 只上传「源码 + 关卡数据 + 设计文档」，
+#        排除引擎自动生成的 2 GB 缓存目录，以及内部工作流记录。
+# ============================================================
+
+# ===== Unity 自动生成目录（绝对不要上传）=====
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]serSettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# ===== IDE / 编辑器生成 =====
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.unityproj
+*.sln
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ===== 操作系统文件 =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== 本项目专属 =====
+# 开发流程内部记录（含 AI 提示词、看板、版本快照，不上传）
+/_workflow/
+# 占位渲染预览图（内容基本全黑，等有正式截图后删掉这一行）
+/_preview/
+
+# ===== 构建产物 =====
+*.apk
+*.aab
+*.unitypackage
+*.app

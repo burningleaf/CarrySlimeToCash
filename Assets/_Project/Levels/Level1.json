@@ -1,0 +1,427 @@
+{
+    "formatVersion": 1,
+    "meta": {
+        "levelId": "Level1",
+        "displayName": "Level1",
+        "parTime": 60.0,
+        "barMaxOverride": 0,
+        "starRatios": [
+            0.6000000238418579,
+            0.8999999761581421,
+            1.100000023841858
+        ],
+        "startStones": 3,
+        "coinValue": 10,
+        "levelIndex": 1,
+        "saveProgress": true,
+        "useCameraBounds": true,
+        "camMinX": -2.0,
+        "camMinY": -11.0,
+        "camMaxX": 212.0,
+        "camMaxY": 16.0,
+        "cameraSize": 6.5,
+        "hasSpawn": true,
+        "playerX": 3.0,
+        "playerY": 0.6000000238418579,
+        "slimeX": 1.0,
+        "slimeY": 0.5
+    },
+    "terrain": [
+        {
+            "name": "Ground_A",
+            "qx": 0,
+            "qy": -8,
+            "qw": 64,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ground_B",
+            "qx": 76,
+            "qy": -8,
+            "qw": 40,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ground_C",
+            "qx": 128,
+            "qy": -8,
+            "qw": 40,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ground_D",
+            "qx": 180,
+            "qy": -8,
+            "qw": 188,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ground_E",
+            "qx": 472,
+            "qy": -8,
+            "qw": 96,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ground_F",
+            "qx": 568,
+            "qy": -8,
+            "qw": 80,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ground_G",
+            "qx": 648,
+            "qy": -8,
+            "qw": 192,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Pillar_1",
+            "qx": 288,
+            "qy": 6,
+            "qw": 8,
+            "qh": 5,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Pillar_2",
+            "qx": 304,
+            "qy": 6,
+            "qw": 8,
+            "qh": 5,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Pillar_3",
+            "qx": 320,
+            "qy": 6,
+            "qw": 8,
+            "qh": 5,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Pillar_4",
+            "qx": 336,
+            "qy": 6,
+            "qw": 8,
+            "qh": 5,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Pillar_5",
+            "qx": 352,
+            "qy": 6,
+            "qw": 8,
+            "qh": 5,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "PitFloor",
+            "qx": 368,
+            "qy": -32,
+            "qw": 88,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Step_1",
+            "qx": 416,
+            "qy": -20,
+            "qw": 16,
+            "qh": 4,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Step_2",
+            "qx": 432,
+            "qy": -12,
+            "qw": 16,
+            "qh": 4,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Step_3",
+            "qx": 448,
+            "qy": -8,
+            "qw": 16,
+            "qh": 4,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ceiling",
+            "qx": 476,
+            "qy": 6,
+            "qw": 96,
+            "qh": 6,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Tunnel_1",
+            "qx": 584,
+            "qy": 4,
+            "qw": 64,
+            "qh": 6,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Zig_1",
+            "qx": 680,
+            "qy": 4,
+            "qw": 24,
+            "qh": 6,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Zig_2",
+            "qx": 656,
+            "qy": 14,
+            "qw": 24,
+            "qh": 6,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Zig_3",
+            "qx": 680,
+            "qy": 24,
+            "qw": 24,
+            "qh": 6,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Wall_Left",
+            "qx": -8,
+            "qy": -52,
+            "qw": 8,
+            "qh": 240,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Wall_Right",
+            "qx": 840,
+            "qy": -52,
+            "qw": 8,
+            "qh": 240,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "DeathPlane",
+            "qx": -8,
+            "qy": -64,
+            "qw": 856,
+            "qh": 12,
+            "kind": 3,
+            "p": [
+                999.0,
+                1.0,
+                0.0,
+                1.0
+            ]
+        }
+    ],
+    "objects": [
+        {
+            "id": "coin_0",
+            "name": "C_Start",
+            "kind": 0,
+            "qx": 32,
+            "qy": 2,
+            "sizeX": 0.6000003814697266,
+            "sizeY": 0.6000003814697266,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_1",
+            "name": "C_Pit1",
+            "kind": 0,
+            "qx": 96,
+            "qy": 2,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_2",
+            "name": "C_Pit2",
+            "kind": 0,
+            "qx": 152,
+            "qy": 2,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_3",
+            "name": "C_Pillar1",
+            "kind": 0,
+            "qx": 288,
+            "qy": 13,
+            "sizeX": 0.600006103515625,
+            "sizeY": 0.600006103515625,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_4",
+            "name": "C_Pillar5",
+            "kind": 0,
+            "qx": 352,
+            "qy": 13,
+            "sizeX": 0.600006103515625,
+            "sizeY": 0.600006103515625,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_5",
+            "name": "C_Well1",
+            "kind": 0,
+            "qx": 392,
+            "qy": -22,
+            "sizeX": 0.600006103515625,
+            "sizeY": 0.600006103515625,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_6",
+            "name": "C_Well2",
+            "kind": 0,
+            "qx": 416,
+            "qy": -22,
+            "sizeX": 0.600006103515625,
+            "sizeY": 0.600006103515625,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_7",
+            "name": "C_Well3",
+            "kind": 0,
+            "qx": 440,
+            "qy": -22,
+            "sizeX": 0.600006103515625,
+            "sizeY": 0.600006103515625,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_8",
+            "name": "C_Tun1",
+            "kind": 0,
+            "qx": 600,
+            "qy": 2,
+            "sizeX": 0.600006103515625,
+            "sizeY": 0.600006103515625,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_9",
+            "name": "C_Tun2",
+            "kind": 0,
+            "qx": 632,
+            "qy": 2,
+            "sizeX": 0.600006103515625,
+            "sizeY": 0.600006103515625,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_10",
+            "name": "C_Zig2",
+            "kind": 0,
+            "qx": 664,
+            "qy": 22,
+            "sizeX": 0.600006103515625,
+            "sizeY": 0.600006103515625,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_11",
+            "name": "C_Zig3",
+            "kind": 0,
+            "qx": 688,
+            "qy": 32,
+            "sizeX": 0.600006103515625,
+            "sizeY": 0.600006103515625,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "goal_0",
+            "name": "Goal",
+            "kind": 3,
+            "qx": 800,
+            "qy": 4,
+            "sizeX": 2.0,
+            "sizeY": 2.0,
+            "p": [
+                1.0,
+                0.0,
+                1.2000000476837159
+            ],
+            "pts": []
+        }
+    ],
+    "links": [],
+    "murals": []
+}

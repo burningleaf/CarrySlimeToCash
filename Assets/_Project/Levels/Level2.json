@@ -1,0 +1,338 @@
+{
+    "formatVersion": 1,
+    "meta": {
+        "levelId": "Level2",
+        "displayName": "Level2",
+        "parTime": 50.0,
+        "barMaxOverride": 0,
+        "starRatios": [
+            0.6000000238418579,
+            0.8999999761581421,
+            1.100000023841858
+        ],
+        "startStones": 3,
+        "coinValue": 10,
+        "levelIndex": 2,
+        "saveProgress": true,
+        "useCameraBounds": true,
+        "camMinX": -27.0,
+        "camMinY": -6.5,
+        "camMaxX": 71.0,
+        "camMaxY": 12.5,
+        "cameraSize": 6.5,
+        "hasSpawn": true,
+        "playerX": -22.0,
+        "playerY": 0.6000000238418579,
+        "slimeX": -24.0,
+        "slimeY": 0.5
+    },
+    "terrain": [
+        {
+            "name": "Ground_Start",
+            "qx": -104,
+            "qy": -8,
+            "qw": 56,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ground_Mid",
+            "qx": -48,
+            "qy": -8,
+            "qw": 64,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ground_WaterBed",
+            "qx": 16,
+            "qy": -14,
+            "qw": 64,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ground_Right",
+            "qx": 80,
+            "qy": -8,
+            "qw": 112,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ground_PitBed",
+            "qx": 192,
+            "qy": -14,
+            "qw": 16,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Ground_End",
+            "qx": 208,
+            "qy": -8,
+            "qw": 72,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Plat_1",
+            "qx": -44,
+            "qy": 0,
+            "qw": 12,
+            "qh": 6,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Plat_2",
+            "qx": -26,
+            "qy": 0,
+            "qw": 12,
+            "qh": 12,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Plat_3",
+            "qx": -8,
+            "qy": 0,
+            "qw": 12,
+            "qh": 18,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Water_Channel",
+            "qx": 16,
+            "qy": -6,
+            "qw": 64,
+            "qh": 6,
+            "kind": 2,
+            "p": [
+                20.0
+            ]
+        },
+        {
+            "name": "Wall_Guide",
+            "qx": 96,
+            "qy": 4,
+            "qw": 32,
+            "qh": 6,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Water_Pit",
+            "qx": 192,
+            "qy": -6,
+            "qw": 16,
+            "qh": 6,
+            "kind": 2,
+            "p": [
+                15.0
+            ]
+        },
+        {
+            "name": "Wall_Left",
+            "qx": -112,
+            "qy": -54,
+            "qw": 8,
+            "qh": 240,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "Wall_Right",
+            "qx": 280,
+            "qy": -54,
+            "qw": 8,
+            "qh": 240,
+            "kind": 0,
+            "p": []
+        }
+    ],
+    "objects": [
+        {
+            "id": "coin_0",
+            "name": "Coin_P1",
+            "kind": 0,
+            "qx": -38,
+            "qy": 9,
+            "sizeX": 0.6000003814697266,
+            "sizeY": 0.6000003814697266,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_1",
+            "name": "Coin_P2",
+            "kind": 0,
+            "qx": -20,
+            "qy": 15,
+            "sizeX": 0.6000003814697266,
+            "sizeY": 0.6000003814697266,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_2",
+            "name": "Coin_P3",
+            "kind": 0,
+            "qx": -2,
+            "qy": 21,
+            "sizeX": 0.6000003814697266,
+            "sizeY": 0.6000003814697266,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "orb_0",
+            "name": "Orb_AfterWater",
+            "kind": 1,
+            "qx": 88,
+            "qy": 2,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                25.0,
+                0.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_3",
+            "name": "Coin_Guide1",
+            "kind": 0,
+            "qx": 104,
+            "qy": 2,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_4",
+            "name": "Coin_Guide2",
+            "kind": 0,
+            "qx": 112,
+            "qy": 2,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_5",
+            "name": "Coin_Guide3",
+            "kind": 0,
+            "qx": 120,
+            "qy": 2,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_6",
+            "name": "Coin_Ledge1",
+            "kind": 0,
+            "qx": 104,
+            "qy": 13,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_7",
+            "name": "Coin_Ledge2",
+            "kind": 0,
+            "qx": 120,
+            "qy": 13,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "orb_1",
+            "name": "Orb_BeforePit",
+            "kind": 1,
+            "qx": 180,
+            "qy": 2,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                25.0,
+                0.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_8",
+            "name": "Coin_End1",
+            "kind": 0,
+            "qx": 224,
+            "qy": 2,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_9",
+            "name": "Coin_End2",
+            "kind": 0,
+            "qx": 240,
+            "qy": 2,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "goal_0",
+            "name": "Goal",
+            "kind": 3,
+            "qx": 260,
+            "qy": 4,
+            "sizeX": 2.0,
+            "sizeY": 2.0,
+            "p": [
+                1.0,
+                0.0,
+                0.0
+            ],
+            "pts": []
+        }
+    ],
+    "links": [],
+    "murals": []
+}

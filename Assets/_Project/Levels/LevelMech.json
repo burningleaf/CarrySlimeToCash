@@ -1,0 +1,281 @@
+{
+    "formatVersion": 1,
+    "meta": {
+        "levelId": "LevelMech",
+        "displayName": "机关测试关",
+        "parTime": 40.0,
+        "barMaxOverride": 0,
+        "starRatios": [
+            0.6000000238418579,
+            0.8999999761581421,
+            1.100000023841858
+        ],
+        "startStones": 3,
+        "coinValue": 10,
+        "levelIndex": 0,
+        "saveProgress": false,
+        "useCameraBounds": true,
+        "camMinX": -2.0,
+        "camMinY": -7.0,
+        "camMaxX": 58.0,
+        "camMaxY": 6.0,
+        "cameraSize": 6.5,
+        "hasSpawn": true,
+        "playerX": 2.0,
+        "playerY": 0.5,
+        "slimeX": 0.5,
+        "slimeY": 0.5
+    },
+    "terrain": [
+        {
+            "name": "G1",
+            "qx": 0,
+            "qy": -8,
+            "qw": 56,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "G_PitBed",
+            "qx": 56,
+            "qy": -18,
+            "qw": 24,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "G2",
+            "qx": 80,
+            "qy": -8,
+            "qw": 144,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "G_High",
+            "qx": 108,
+            "qy": 6,
+            "qw": 24,
+            "qh": 4,
+            "kind": 0,
+            "p": []
+        }
+    ],
+    "objects": [
+        {
+            "id": "plate_A",
+            "name": "plate_A",
+            "kind": 4,
+            "qx": 24,
+            "qy": 1,
+            "sizeX": 2.0,
+            "sizeY": 0.30000001192092898,
+            "p": [
+                0.0,
+                1.0,
+                0.0,
+                0.07999999821186066
+            ],
+            "pts": []
+        },
+        {
+            "id": "gate_1",
+            "name": "gate_1",
+            "kind": 6,
+            "qx": 48,
+            "qy": 9,
+            "sizeX": 1.0,
+            "sizeY": 4.5,
+            "p": [],
+            "pts": []
+        },
+        {
+            "id": "plat_1",
+            "name": "plat_1",
+            "kind": 5,
+            "qx": 68,
+            "qy": -1,
+            "sizeX": 2.5,
+            "sizeY": 0.5,
+            "p": [
+                3.0,
+                0.4000000059604645,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "pts": [
+                -12,
+                0,
+                12,
+                0
+            ]
+        },
+        {
+            "id": "plate_B",
+            "name": "plate_B",
+            "kind": 4,
+            "qx": 120,
+            "qy": 11,
+            "sizeX": 2.0,
+            "sizeY": 0.5,
+            "p": [
+                0.0,
+                0.0,
+                0.0,
+                0.07999999821186066
+            ],
+            "pts": []
+        },
+        {
+            "id": "plat_2",
+            "name": "plat_2",
+            "kind": 5,
+            "qx": 120,
+            "qy": 12,
+            "sizeX": 1.5,
+            "sizeY": 0.4000000059604645,
+            "p": [
+                2.0,
+                0.5,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "pts": [
+                -12,
+                0,
+                12,
+                0
+            ]
+        },
+        {
+            "id": "gate_2",
+            "name": "gate_2",
+            "kind": 6,
+            "qx": 144,
+            "qy": 9,
+            "sizeX": 1.0,
+            "sizeY": 4.5,
+            "p": [],
+            "pts": []
+        },
+        {
+            "id": "checkpoint_1",
+            "name": "checkpoint_1",
+            "kind": 7,
+            "qx": 156,
+            "qy": 4,
+            "sizeX": 1.5,
+            "sizeY": 2.0,
+            "p": [
+                1.0,
+                1.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "enemy_1",
+            "name": "enemy_1",
+            "kind": 8,
+            "qx": 184,
+            "qy": 2,
+            "sizeX": 0.8999999761581421,
+            "sizeY": 0.8999999761581421,
+            "p": [
+                2.0,
+                3.0,
+                0.5,
+                1.0,
+                15.0,
+                1.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "goal_0",
+            "name": "goal_0",
+            "kind": 3,
+            "qx": 208,
+            "qy": 4,
+            "sizeX": 2.0,
+            "sizeY": 2.0,
+            "p": [
+                1.0,
+                0.0,
+                1.2000000476837159
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_1",
+            "name": "coin_1",
+            "kind": 0,
+            "qx": 32,
+            "qy": 2,
+            "sizeX": 0.6000000238418579,
+            "sizeY": 0.6000000238418579,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_2",
+            "name": "coin_2",
+            "kind": 0,
+            "qx": 96,
+            "qy": 2,
+            "sizeX": 0.6000000238418579,
+            "sizeY": 0.6000000238418579,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_3",
+            "name": "coin_3",
+            "kind": 0,
+            "qx": 172,
+            "qy": 2,
+            "sizeX": 0.6000000238418579,
+            "sizeY": 0.6000000238418579,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_4",
+            "name": "coin_4",
+            "kind": 0,
+            "qx": 200,
+            "qy": 2,
+            "sizeX": 0.6000000238418579,
+            "sizeY": 0.6000000238418579,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        }
+    ],
+    "links": [
+        {
+            "sourceId": "plate_A",
+            "targetId": "gate_1",
+            "mode": 2,
+            "delay": 0.0
+        },
+        {
+            "sourceId": "plate_B",
+            "targetId": "gate_2",
+            "mode": 0,
+            "delay": 0.0
+        }
+    ],
+    "murals": []
+}
