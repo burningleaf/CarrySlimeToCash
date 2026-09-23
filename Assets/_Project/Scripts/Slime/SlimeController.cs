@@ -17,6 +17,8 @@ public enum SlimeState
 /// Inspector：拖 Rigidbody2D、Collider2D、PlayerController、SlimePathFollow、LevelManager、GroundCheck 空物体、SpriteRenderer、Animator、AudioSource。
 /// 依赖：PlayerController（只读位置 / 在地面 / 起跳时间戳 / 跳跃高度）、SlimePathFollow、LevelManager（死亡汇报）。
 /// 禁止：不自主跳跃（只跟跳）、不寻路、不绕路、不传送、不攀爬。
+/// 哨子分工（2026-09-22 重订）：E = 模式 Follow ↔ Stay；Q = 限时冲刺 <see cref="TrySprint"/>。
+/// 冲刺只是"沿原来的路蠕动得更快"，不改变障碍判定，也【不绕过 Stay】。
 /// 动画参数名：Speed(float)、IsGrounded(bool)、IsCarried(bool)、IsScared(bool)、IsDead(bool)。
 /// </summary>
 public class SlimeController : MonoBehaviour
@@ -34,6 +36,8 @@ public class SlimeController : MonoBehaviour
     public SpriteRenderer spriteRenderer;
     public Animator animator;
     public AudioSource audioSource;
+    [Tooltip("冲刺时的气流拖尾粒子，可空。冲刺开始 Play()、结束 Stop()")]
+    public ParticleSystem sprintTrail;
 
     [Header("血量（= 售价，会随时间下降）")]
     // 必须用 float：掉血速率可能是 0.6 血/秒这种小数，用 int 会永远掉不动。
@@ -51,10 +55,19 @@ public class SlimeController : MonoBehaviour
     public float followDistance = 1.4f;
     [Tooltip("移动延迟，0.1~0.2 秒")]
     public float followDelay = 0.15f;
-    [Tooltip("哨子召回时的速度倍率（仍然是直线蠕动，不寻路）")]
-    public float recallSpeedMultiplier = 1.4f;
     [Tooltip("位置历史缓冲长度")]
     public int historySize = 128;
+
+    [Header("冲刺（哨子 Q）")]
+    // 设计：E 管"停 / 跟"、Q 管"快"，两者不重叠。
+    // 冲刺 = 沿原方向蠕动得更快，不寻路、不绕路、不传送，被高台 / 深坑照样卡住。
+    // ⚠ 冲刺绝不绕过 Stay：待命时 TrySprint() 一定返回 false。
+    [Tooltip("冲刺持续时间（秒）。到时自动结束并进入冷却")]
+    public float sprintDuration = 2.5f;
+    [Tooltip("冲刺速度倍率：冲刺速度 = followSpeed × 该值 = 12.0")]
+    public float sprintMultiplier = 2f;
+    [Tooltip("冲刺冷却（秒）。冷却期间再按 Q 吹不响，史莱姆喘气")]
+    public float sprintCooldown = 3f;
 
     [Header("跟跳（延迟 0.15~0.25 秒）")]
     public float jumpFollowDelay = 0.2f;
@@ -158,6 +171,10 @@ public class SlimeController : MonoBehaviour
     public AudioClip deathClip;
     public AudioClip healClip;
     public AudioClip modeClip;
+    [Tooltip("冲刺启动")]
+    public AudioClip sprintClip;
+    [Tooltip("吹不响：冷却中按 Q / 待命时按 Q —— 一声低沉的哨音")]
+    public AudioClip sprintRefusedClip;
 
     // ---------------- 只读状态（UI / PlayerGrab / 关卡件来读） ----------------
     public SlimeState State { get { return _state; } }
@@ -169,7 +186,10 @@ public class SlimeController : MonoBehaviour
     public float CurrentHealthF { get { return currentHealth; } }
     public float HealthRatio { get { return maxHealth > 0f ? Mathf.Clamp01(currentHealth / maxHealth) : 0f; } }
     public bool IsCarried { get { return _state == SlimeState.Carried; } }
-    public bool IsRecalling { get { return _recalling; } }
+    /// <summary>冲刺中（只读）。给表现层做气流拖尾用。</summary>
+    public bool IsSprinting { get { return _sprinting; } }
+    /// <summary>冲刺冷却已好、可以再吹一次（只读，只看冷却，不看当前是不是 Stay）。</summary>
+    public bool IsSprintReady { get { return !_sprinting && Time.time >= _sprintReadyTime; } }
     public bool IsGrounded { get; private set; }
     public float FacingX { get { return _facing; } }
 
@@ -181,7 +201,10 @@ public class SlimeController : MonoBehaviour
     private float _thrownTimer;
     private float _restUntil;
     private float _followedJumpTime = -999f;
-    private bool _recalling;
+    private bool _sprinting;
+    private float _sprintEndTime;
+    private float _sprintReadyTime = -999f;
+    private float _pantUntil;              // 冷却中吹不响时的喘气截止时间
     private Transform _carryPoint;
 
     private Vector3[] _historyPos;
@@ -299,6 +322,9 @@ public class SlimeController : MonoBehaviour
 
     void FixedUpdate()
     {
+        // 冲刺到时自动结束并进入冷却。放在最前面：后面任何早退（掉出世界 / 没刚体）都不会把它漏掉
+        TickSprint();
+
         // 卡住判定：不关心"为什么卡"，只看"想过去却没动"。
         // 上一次 FixedUpdate 到这里之间物理走了一步，位置差就是这一步实际移动的距离
         // （正常跟随一步约 0.13 格；卡住时≈0）。
@@ -352,13 +378,8 @@ public class SlimeController : MonoBehaviour
         if (IsGrounded && _state != SlimeState.Carried && _state != SlimeState.Thrown)
             _lastSafePosition = transform.position;
 
-        // 召回优先于模式：仍然只是朝玩家直线蠕动，被挡住就卡住
-        if (_recalling && _state != SlimeState.Dead && _state != SlimeState.Carried && _state != SlimeState.Thrown)
-        {
-            TickRecall();
-            return;
-        }
-
+        // ⚠ 这里以前有一句「召回优先于模式」的短路（_recalling 会把 Stay 直接跳过），
+        //   改成限时冲刺后已删除：Stay 就该是 Stay，冲刺只影响 Follow 的移动速度。
         switch (_state)
         {
             case SlimeState.Follow:
@@ -423,20 +444,103 @@ public class SlimeController : MonoBehaviour
             stopDistance = followDistance;
         }
 
-        MoveTowards(target.x, stopDistance, 1f);
+        MoveTowards(target.x, stopDistance, SpeedMultiplierNow);
     }
 
-    // ---------------- 召回 ----------------
-    private void TickRecall()
+    // ---------------- 冲刺（哨子 Q） ----------------
+    /// <summary>
+    /// 冲刺：跟随时且冷却已好 → 开始限时加速并返回 true；
+    /// 否则返回 false 并播 sprintRefusedClip。
+    /// 待命（Stay）时【一定】返回 false —— Q 绝不解除待命，要它动先按 E。
+    /// </summary>
+    public bool TrySprint()
     {
-        if (player == null)
+        if (_state == SlimeState.Dead || _state == SlimeState.Carried)
         {
-            _recalling = false;
-            StopHorizontal();
-            return;
+            PlayClip(sprintRefusedClip);
+            return false;
         }
 
-        MoveTowards(player.transform.position.x, followDistance * 0.7f, recallSpeedMultiplier);
+        // Stay：无效，但给明确反馈（低哨音 + 朝玩家看一眼），
+        // 故意不做成"Q 也能解除待命"—— 否则 Q 又成了 E 的超集
+        if (_mode == SlimeState.Stay || _state == SlimeState.Stay)
+        {
+            FacePlayer();
+            PlayClip(sprintRefusedClip);
+            return false;
+        }
+
+        // 受惊 / 投掷落地静止等过程状态：现在跑不动，别白白吃掉一次冲刺和冷却
+        if (_state != SlimeState.Follow)
+        {
+            PlayClip(sprintRefusedClip);
+            return false;
+        }
+
+        if (_sprinting)
+        {
+            PlayClip(sprintRefusedClip);
+            return false;
+        }
+
+        if (Time.time < _sprintReadyTime)
+        {
+            Pant();                     // 冷却中吹不响：没劲地喘一口气
+            PlayClip(sprintRefusedClip);
+            return false;
+        }
+
+        StartSprint();
+        return true;
+    }
+
+    private void StartSprint()
+    {
+        _sprinting = true;
+        _sprintEndTime = Time.time + Mathf.Max(0.05f, sprintDuration);
+        if (sprintTrail != null) sprintTrail.Play();
+        PlayClip(sprintClip);
+    }
+
+    /// <summary>结束冲刺并进入冷却（到时 / 切待命 / 被抱起 / 死亡 / 掉出世界都走这里）。</summary>
+    private void EndSprint()
+    {
+        if (!_sprinting) return;
+        _sprinting = false;
+        _sprintReadyTime = Time.time + Mathf.Max(0f, sprintCooldown);
+        if (sprintTrail != null) sprintTrail.Stop();
+    }
+
+    /// <summary>冲刺到时自动结束。不寻路、不绕路、不传送 —— 只把速度倍率还原。</summary>
+    private void TickSprint()
+    {
+        if (_sprinting && Time.time >= _sprintEndTime) EndSprint();
+    }
+
+    /// <summary>当前速度倍率：冲刺中 = sprintMultiplier，否则 1。只改速度，不改"往哪走"。</summary>
+    private float SpeedMultiplierNow
+    {
+        get { return _sprinting ? Mathf.Max(1f, sprintMultiplier) : 1f; }
+    }
+
+    /// <summary>喘一口气：复用挣扎那套喘气参数，不新造。</summary>
+    private void Pant()
+    {
+        _pantUntil = Time.time + Mathf.Max(0.1f, strugglePantDuration);
+    }
+
+    /// <summary>冷却中吹不响时的喘气表现（长度就是 strugglePantDuration 那一段）。</summary>
+    private bool IsPanting
+    {
+        get { return Time.time < _pantUntil; }
+    }
+
+    /// <summary>被哨子拒绝时朝玩家看一眼（声音传来的方向）。</summary>
+    private void FacePlayer()
+    {
+        if (player == null) return;
+        float dx = player.transform.position.x - transform.position.x;
+        if (Mathf.Abs(dx) > 0.01f) _facing = dx > 0f ? 1f : -1f;
     }
 
     /// <summary>朝目标 x 直线蠕动；被高台 / 深坑挡住就停下等玩家处理。</summary>
@@ -615,7 +719,7 @@ public class SlimeController : MonoBehaviour
 
         _carryPoint = carryPoint != null ? carryPoint : transform;
         _state = SlimeState.Carried;
-        _recalling = false;
+        EndSprint();   // 被抱起来了，冲刺自然结束（照样进冷却，避免抱一下就把冷却刷掉）
 
         if (body != null)
         {
@@ -666,7 +770,7 @@ public class SlimeController : MonoBehaviour
 
         if (mode == SlimeState.Stay)
         {
-            _recalling = false;
+            EndSprint();   // 切到待命 = 取消冲刺
             if (_state != SlimeState.Carried && _state != SlimeState.Thrown)
             {
                 _state = SlimeState.Stay;
@@ -690,20 +794,6 @@ public class SlimeController : MonoBehaviour
     public void ToggleMode()
     {
         SetMode(_mode == SlimeState.Follow ? SlimeState.Stay : SlimeState.Follow);
-    }
-
-    // ---------------- 哨子召回 ----------------
-    /// <summary>召回：以更高速度朝玩家方向直线蠕动。不寻路、不绕路、不传送，被挡住照样卡住。</summary>
-    public void StartRecall()
-    {
-        if (_state == SlimeState.Dead || _state == SlimeState.Carried) return;
-        _recalling = true;
-    }
-
-    /// <summary>打断召回。</summary>
-    public void CancelRecall()
-    {
-        _recalling = false;
     }
 
     // ---------------- 血量 ----------------
@@ -742,7 +832,7 @@ public class SlimeController : MonoBehaviour
     private void Die()
     {
         _state = SlimeState.Dead;
-        _recalling = false;
+        EndSprint();
         StopHorizontal();
         if (body != null) body.velocity = Vector2.zero;
         if (animator != null) animator.SetBool("IsDead", true);
@@ -787,7 +877,7 @@ public class SlimeController : MonoBehaviour
         transform.position = _lastSafePosition;
         gameObject.layer = slimeLayer;
         _carryPoint = null;
-        _recalling = false;
+        EndSprint();
         ReturnToMode();
 
         if (body != null)
@@ -870,7 +960,7 @@ public class SlimeController : MonoBehaviour
     }
 
     /// <summary>
-    /// 判定"卡住"：处于跟随/召回、人还离得远（按 2D 距离算）、但一个物理步几乎没移动。
+    /// 判定"卡住"：处于跟随中、人还离得远（按 2D 距离算）、但一个物理步几乎没移动。
     ///
     /// 这个判法**不关心"为什么卡"**（高墙 / 台子角 / 无底坑 / 悬在边上），
     /// 只要是"想过去却过不去"就算，所以不会漏。
@@ -883,7 +973,7 @@ public class SlimeController : MonoBehaviour
     {
         if (player == null) return false;
         if (_state == SlimeState.Dead || _state == SlimeState.Carried) return false;
-        if (_state != SlimeState.Follow && !_recalling) return false;
+        if (_state != SlimeState.Follow) return false;   // 冲刺不算"想过去"的独立来源：Stay 就是 Stay
 
         // 已经跟到玩家身边了，站着不动是正常的
         float d = Vector2.Distance(transform.position, player.transform.position);
@@ -939,6 +1029,17 @@ public class SlimeController : MonoBehaviour
                 sx *= 1f - strugglePantShrink;
                 sy *= 1f - strugglePantShrink;
             }
+        }
+        else if (IsPanting)
+        {
+            // 哨子冷却中吹不响：没劲地喘一口气。
+            // 复用挣扎那套喘气参数（周期 strugglePantPeriod / 缩放 strugglePantShrink），不新造一套。
+            // 故意【不染 struggleColor】—— 那个橙色是"我卡住了"的信号，不能和"在喘气"混在一起。
+            float pantPeriod = Mathf.Max(0.3f, strugglePantPeriod);
+            float breath = 0.5f + 0.5f * Mathf.Sin(_wobbleTime * Mathf.PI * 2f / pantPeriod);
+            float pantShrink = 1f - strugglePantShrink * breath;
+            sx *= pantShrink;
+            sy *= pantShrink;
         }
         else if (_state == SlimeState.Carried)
         {

@@ -1,0 +1,661 @@
+{
+    "formatVersion": 1,
+    "meta": {
+        "levelId": "Level3",
+        "displayName": "Level3",
+        "parTime": 60.0,
+        "barMaxOverride": 0,
+        "starRatios": [
+            0.6000000238418579,
+            0.8999999761581421,
+            1.100000023841858
+        ],
+        "startStones": 3,
+        "coinValue": 10,
+        "levelIndex": 3,
+        "saveProgress": true,
+        "useCameraBounds": true,
+        "camMinX": 0.0,
+        "camMinY": -4.0,
+        "camMaxX": 46.0,
+        "camMaxY": 22.0,
+        "cameraSize": 6.5,
+        "hasSpawn": true,
+        "playerX": 2.0,
+        "playerY": 0.6000000238418579,
+        "slimeX": 1.0,
+        "slimeY": 0.5
+    },
+    "terrain": [
+        {
+            "name": "G01_Start",
+            "qx": 0,
+            "qy": -16,
+            "qw": 40,
+            "qh": 16,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "G02_Pit1Bed",
+            "qx": 40,
+            "qy": -16,
+            "qw": 12,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "G03_Mid",
+            "qx": 52,
+            "qy": -16,
+            "qw": 12,
+            "qh": 16,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "G04_Wat1Bed",
+            "qx": 64,
+            "qy": -16,
+            "qw": 16,
+            "qh": 16,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "G05_East",
+            "qx": 80,
+            "qy": -16,
+            "qw": 24,
+            "qh": 16,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "G06_LiftBay",
+            "qx": 104,
+            "qy": -16,
+            "qw": 16,
+            "qh": 16,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "G07_Pit2Bed",
+            "qx": 120,
+            "qy": -16,
+            "qw": 48,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "G08_Goal",
+            "qx": 168,
+            "qy": -16,
+            "qw": 16,
+            "qh": 16,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "U01_West",
+            "qx": 0,
+            "qy": 40,
+            "qw": 104,
+            "qh": 8,
+            "kind": 0,
+            "p": []
+        },
+        {
+            "name": "W01_Water",
+            "qx": 64,
+            "qy": -4,
+            "qw": 16,
+            "qh": 6,
+            "kind": 2,
+            "p": [
+                20.0
+            ]
+        },
+        {
+            "name": "H01_Pit2Floor",
+            "qx": 120,
+            "qy": -8,
+            "qw": 48,
+            "qh": 2,
+            "kind": 3,
+            "p": [
+                15.0,
+                0.0,
+                0.0,
+                0.0
+            ]
+        }
+    ],
+    "objects": [
+        {
+            "id": "coin_0",
+            "name": "Coin_Start",
+            "kind": 0,
+            "qx": 12,
+            "qy": 2,
+            "sizeX": 0.5999999046325684,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_1",
+            "name": "Coin_Gate1",
+            "kind": 0,
+            "qx": 30,
+            "qy": 2,
+            "sizeX": 0.6000003814697266,
+            "sizeY": 0.6000003814697266,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_2",
+            "name": "Coin_Pit1",
+            "kind": 0,
+            "qx": 46,
+            "qy": -4,
+            "sizeX": 0.6000003814697266,
+            "sizeY": 0.6000003814697266,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_3",
+            "name": "Coin_Mid",
+            "kind": 0,
+            "qx": 58,
+            "qy": 10,
+            "sizeX": 0.6000003814697266,
+            "sizeY": 0.6000003814697266,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_4",
+            "name": "Coin_Water",
+            "kind": 0,
+            "qx": 70,
+            "qy": 4,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_5",
+            "name": "Coin_East",
+            "kind": 0,
+            "qx": 98,
+            "qy": 12,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_6",
+            "name": "Coin_ShaftLow",
+            "kind": 0,
+            "qx": 112,
+            "qy": 12,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_7",
+            "name": "Coin_ShaftHigh",
+            "kind": 0,
+            "qx": 112,
+            "qy": 32,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.6000003814697266,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_8",
+            "name": "Coin_UpperEast",
+            "kind": 0,
+            "qx": 102,
+            "qy": 52,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.6000003814697266,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_9",
+            "name": "Coin_UpperEnemy",
+            "kind": 0,
+            "qx": 44,
+            "qy": 52,
+            "sizeX": 0.6000003814697266,
+            "sizeY": 0.6000003814697266,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_10",
+            "name": "Coin_BridgeW",
+            "kind": 0,
+            "qx": 136,
+            "qy": 6,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "coin_11",
+            "name": "Coin_Goal",
+            "kind": 0,
+            "qx": 178,
+            "qy": 10,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                10.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "orb_0",
+            "name": "Orb_AfterWater",
+            "kind": 1,
+            "qx": 82,
+            "qy": 2,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.5999999046325684,
+            "p": [
+                25.0,
+                0.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "orb_1",
+            "name": "Orb_UpperMid",
+            "kind": 1,
+            "qx": 66,
+            "qy": 52,
+            "sizeX": 0.5999984741210938,
+            "sizeY": 0.6000003814697266,
+            "p": [
+                25.0,
+                0.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "goal_0",
+            "name": "Goal",
+            "kind": 3,
+            "qx": 178,
+            "qy": 4,
+            "sizeX": 1.5,
+            "sizeY": 2.0,
+            "p": [
+                1.0,
+                0.0,
+                1.2000000476837159
+            ],
+            "pts": []
+        },
+        {
+            "id": "plate_0",
+            "name": "Plate_A_Hold",
+            "kind": 4,
+            "qx": 20,
+            "qy": 1,
+            "sizeX": 2.0,
+            "sizeY": 0.3999999761581421,
+            "p": [
+                0.0,
+                0.0,
+                0.0,
+                0.07999999821186066
+            ],
+            "pts": []
+        },
+        {
+            "id": "plate_1",
+            "name": "Plate_B_Hold",
+            "kind": 4,
+            "qx": 86,
+            "qy": 1,
+            "sizeX": 0.5,
+            "sizeY": 0.3999999761581421,
+            "p": [
+                0.0,
+                0.0,
+                0.0,
+                0.07999999821186066
+            ],
+            "pts": []
+        },
+        {
+            "id": "plate_2",
+            "name": "Plate_G_Latch",
+            "kind": 4,
+            "qx": 92,
+            "qy": 49,
+            "sizeX": 1.0,
+            "sizeY": 0.39999961853027346,
+            "p": [
+                0.0,
+                1.0,
+                0.0,
+                0.07999999821186066
+            ],
+            "pts": []
+        },
+        {
+            "id": "plate_3",
+            "name": "Plate_H_OneShot",
+            "kind": 4,
+            "qx": 58,
+            "qy": 49,
+            "sizeX": 2.0,
+            "sizeY": 0.39999961853027346,
+            "p": [
+                0.0,
+                1.0,
+                1.0,
+                0.07999999821186066
+            ],
+            "pts": []
+        },
+        {
+            "id": "plate_4",
+            "name": "Plate_E_Bridge",
+            "kind": 4,
+            "qx": 14,
+            "qy": 49,
+            "sizeX": 2.0,
+            "sizeY": 0.39999961853027346,
+            "p": [
+                0.0,
+                0.0,
+                1.0,
+                0.07999999821186066
+            ],
+            "pts": []
+        },
+        {
+            "id": "plate_5",
+            "name": "Plate_D_Timed",
+            "kind": 4,
+            "qx": 98,
+            "qy": 72,
+            "sizeX": 2.0,
+            "sizeY": 2.0,
+            "p": [
+                0.0,
+                0.0,
+                0.0,
+                0.07999999821186066
+            ],
+            "pts": []
+        },
+        {
+            "id": "mplat_0",
+            "name": "Lift_Main",
+            "kind": 5,
+            "qx": 112,
+            "qy": -1,
+            "sizeX": 2.0,
+            "sizeY": 0.5,
+            "p": [
+                4.0,
+                0.5,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "pts": [
+                0,
+                0,
+                0,
+                48
+            ]
+        },
+        {
+            "id": "mplat_1",
+            "name": "Platform_Timed",
+            "kind": 5,
+            "qx": 98,
+            "qy": 64,
+            "sizeX": 2.0,
+            "sizeY": 0.5,
+            "p": [
+                2.0,
+                0.5,
+                1.0,
+                0.0,
+                1.0
+            ],
+            "pts": [
+                0,
+                0,
+                0,
+                16
+            ]
+        },
+        {
+            "id": "gate_0",
+            "name": "Gate_1_Bar_A",
+            "kind": 6,
+            "qx": 38,
+            "qy": 13,
+            "sizeX": 1.0,
+            "sizeY": 4.5,
+            "p": [],
+            "pts": []
+        },
+        {
+            "id": "gate_1",
+            "name": "Gate_2_Bar_B",
+            "kind": 6,
+            "qx": 102,
+            "qy": 13,
+            "sizeX": 1.0,
+            "sizeY": 4.5,
+            "p": [],
+            "pts": []
+        },
+        {
+            "id": "gate_2",
+            "name": "Gate_3_Timed",
+            "kind": 6,
+            "qx": 74,
+            "qy": 55,
+            "sizeX": 1.0,
+            "sizeY": 3.5,
+            "p": [],
+            "pts": []
+        },
+        {
+            "id": "gate_3",
+            "name": "Gate_4_Latch",
+            "kind": 6,
+            "qx": 84,
+            "qy": 55,
+            "sizeX": 1.0,
+            "sizeY": 3.5,
+            "p": [],
+            "pts": []
+        },
+        {
+            "id": "gate_4",
+            "name": "Gate_5_BridgeW",
+            "kind": 6,
+            "qx": 136,
+            "qy": 2,
+            "sizeX": 1.5,
+            "sizeY": 1.0,
+            "p": [],
+            "pts": []
+        },
+        {
+            "id": "gate_5",
+            "name": "Gate_6_BridgeE",
+            "kind": 6,
+            "qx": 155,
+            "qy": 2,
+            "sizeX": 1.5,
+            "sizeY": 1.0,
+            "p": [],
+            "pts": []
+        },
+        {
+            "id": "cp_0",
+            "name": "CP_BeforeWater",
+            "kind": 7,
+            "qx": 53,
+            "qy": 4,
+            "sizeX": 0.5,
+            "sizeY": 2.0,
+            "p": [
+                1.0,
+                1.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "cp_1",
+            "name": "CP_BeforePit",
+            "kind": 7,
+            "qx": 94,
+            "qy": 4,
+            "sizeX": 1.0,
+            "sizeY": 2.0,
+            "p": [
+                1.0,
+                1.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "cp_2",
+            "name": "CP_Upper",
+            "kind": 7,
+            "qx": 28,
+            "qy": 52,
+            "sizeX": 1.5,
+            "sizeY": 2.0,
+            "p": [
+                1.0,
+                1.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "enemy_0",
+            "name": "Enemy_Ground",
+            "kind": 8,
+            "qx": 60,
+            "qy": 2,
+            "sizeX": 0.8999996185302734,
+            "sizeY": 0.8999999761581421,
+            "p": [
+                2.5,
+                0.75,
+                0.5,
+                1.0,
+                15.0,
+                1.0
+            ],
+            "pts": []
+        },
+        {
+            "id": "enemy_1",
+            "name": "Enemy_Upper",
+            "kind": 8,
+            "qx": 42,
+            "qy": 50,
+            "sizeX": 0.8999996185302734,
+            "sizeY": 0.8999996185302734,
+            "p": [
+                2.5,
+                2.0,
+                0.5,
+                1.0,
+                15.0,
+                1.0
+            ],
+            "pts": []
+        }
+    ],
+    "links": [
+        {
+            "sourceId": "plate_0",
+            "targetId": "gate_0",
+            "mode": 0,
+            "delay": 0.0
+        },
+        {
+            "sourceId": "plate_1",
+            "targetId": "gate_1",
+            "mode": 0,
+            "delay": 0.0
+        },
+        {
+            "sourceId": "plate_2",
+            "targetId": "gate_3",
+            "mode": 2,
+            "delay": 0.0
+        },
+        {
+            "sourceId": "plate_3",
+            "targetId": "gate_5",
+            "mode": 1,
+            "delay": 0.0
+        },
+        {
+            "sourceId": "plate_4",
+            "targetId": "gate_4",
+            "mode": 3,
+            "delay": 0.0
+        },
+        {
+            "sourceId": "plate_5",
+            "targetId": "gate_2",
+            "mode": 0,
+            "delay": 0.0
+        }
+    ],
+    "murals": []
+}

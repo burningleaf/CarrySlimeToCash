@@ -173,6 +173,7 @@ MonoBehaviour:
   spriteRenderer: {fileID: 0}
   animator: {fileID: 0}
   audioSource: {fileID: -6614833694472626476}
+  sprintTrail: {fileID: 0}
   maxHealth: 100
   currentHealth: 100
   invincibleTime: 1
@@ -180,8 +181,10 @@ MonoBehaviour:
   followSpeed: 6.5
   followDistance: 1.4
   followDelay: 0.15
-  recallSpeedMultiplier: 1.4
   historySize: 128
+  sprintDuration: 2.5
+  sprintMultiplier: 2
+  sprintCooldown: 3
   jumpFollowDelay: 0.2
   jumpFollowWindow: 0.6
   jumpHeightRatio: 1
@@ -235,6 +238,8 @@ MonoBehaviour:
   deathClip: {fileID: 8300000, guid: 8ee76e65185baa148860f56bb5705ea5, type: 3}
   healClip: {fileID: 8300000, guid: 3d7fe8f5757a3ad4aa371a6b0ec04c3b, type: 3}
   modeClip: {fileID: 8300000, guid: 152bb2abb8cbaad4985d95b6dcb7f6cc, type: 3}
+  sprintClip: {fileID: 8300000, guid: 377b2148c99f70f4087520556d4748d3, type: 3}
+  sprintRefusedClip: {fileID: 8300000, guid: 17fa734ec99ed734d9b281622f71e6e4, type: 3}
 --- !u!114 &971407660041316910
 MonoBehaviour:
   m_ObjectHideFlags: 0

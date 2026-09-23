@@ -366,7 +366,10 @@ public static class AssetWiring
             "hurtClip=" + ClipSlimeHurt,
             "deathClip=" + ClipSlimeDeath,
             "healClip=" + ClipSlimeHeal,
-            "modeClip=" + ClipSlimeMode),
+            "modeClip=" + ClipSlimeMode,
+            // 2026-09-22 哨子 E/Q 重订新增：Q 冲刺用哨音；吹不响（冷却中 / 待命时）用"按不动"音
+            "sprintClip=" + ClipPlayerWhistle,
+            "sprintRefusedClip=" + ClipUiLocked),
         T(typeof(SlimePathFollow),
             "placeClip=" + ClipPlayerWaypoint,
             // 故意的：到达路点复用"模式切换"音，没有单独文件

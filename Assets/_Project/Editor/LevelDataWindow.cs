@@ -31,7 +31,9 @@ public static class LevelDataWindow
     /// <summary>1/4 格量化后误差超过这个值（世界单位）就报警告。</summary>
     public const float QuantizeWarn = 0.05f;
 
-    public static readonly string[] LevelSceneNames = { "Level0", "Level1", "Level2" };
+    // ⚠ 这一个数组同时驱动【面板下拉】和【全部批处理】（导出 / 重建 / 往返 / 收益表 / 求解），
+    //   新关卡不登记在这里 = 面板里看不到、所有批处理也覆盖不到。
+    public static readonly string[] LevelSceneNames = { "Level0", "Level1", "Level2", "Level3" };
 
     // ======================= 菜单 =======================
 
@@ -461,7 +463,13 @@ public static class LevelDataWindow
             data.meta.camMaxX = cf.boundsMax.x;
             data.meta.camMaxY = cf.boundsMax.y;
             Camera cam = cf.GetComponent<Camera>();
-            if (cam != null) data.meta.cameraSize = cam.orthographicSize;
+            // ⚠ 必须读 cf.baseSize（关卡【基准】视野 = meta.cameraSize），不能读 cam.orthographicSize：
+            //    相机自动拉远上线后，导出那一刻相机可能正在拉远，读"当下值"会把拉远后的尺寸永久写进 JSON
+            //    （关卡初始视野被改大），而 META 比对行含 cameraSize（LevelData.cs:388-391）→ ⓪-3 会报
+            //    「往返不一致 ❌」，且极难排查。
+            //    baseSize <= 0 时才退回读相机当前尺寸（编辑模式下相机不会自动拉远，兜底是安全的）。
+            if (cf.baseSize > 0f) data.meta.cameraSize = cf.baseSize;
+            else if (cam != null) data.meta.cameraSize = cam.orthographicSize;
         }
 
         // 联动关系
@@ -1338,8 +1346,10 @@ public static class LevelDataWindow
         EditorSceneManager.SaveScene(scene);
         Debug.Log("[教程关] 已生成 " + dst + "\n" + msg);
 
-        // 4) Build Settings：MainMenu → LevelSelect → Level0 → Level1 → Level2
-        string[] order = { "MainMenu", "LevelSelect", "Level0", "Level1", "Level2" };
+        // 4) Build Settings：MainMenu → LevelSelect → Level0 → Level1 → Level2 → Level3
+        //    ⚠ 这个数组是【整表替换】（下面 `EditorBuildSettings.scenes = list.ToArray()`），
+        //      不是追加 —— 少写哪一个场景，它就会被从 Build Settings 里静默删掉。
+        string[] order = { "MainMenu", "LevelSelect", "Level0", "Level1", "Level2", "Level3" };
         List<EditorBuildSettingsScene> list = new List<EditorBuildSettingsScene>();
         foreach (string n in order)
         {
@@ -1351,7 +1361,7 @@ public static class LevelDataWindow
 
         AssetDatabase.Refresh();
         Debug.Log("[教程关] 完成：数据 " + LevelsDir + "/Level0.json，场景 " + dst +
-                  "，Build Settings 已按 MainMenu → LevelSelect → Level0 → Level1 → Level2 排好。");
+                  "，Build Settings 已按 MainMenu → LevelSelect → Level0 → Level1 → Level2 → Level3 排好。");
     }
 
     static TMP_FontAsset FindMuralFont()

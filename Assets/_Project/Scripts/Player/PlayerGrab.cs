@@ -3,7 +3,7 @@ using UnityEngine;
 /// <summary>
 /// 职责：唯一的动作键入口。按 PlayerInventory 当前物品用 switch 分发 E / Q 行为。
 ///   空手     ：E 抓取（近距离，半径 1.2，判定宽容）或放置；Q 投掷
-///   哨子     ：E 切换史莱姆 Follow / Stay；Q 召回，召回中再按 Q 打断
+///   哨子     ：E 切换史莱姆 Follow / Stay（双向开关，远距离生效）；Q 冲刺（限时加速，冷却中吹不响，待命时按 Q 无效）
 ///   引导石   ：E 放置路径点（最多 3 个）；Q 清除全部路径点
 ///   预留槽   ：无行为
 /// Inspector：拖 PlayerController、PlayerInventory、SlimeController、SlimePathFollow、CarryPoint 空物体、AudioSource。
@@ -131,12 +131,11 @@ public class PlayerGrab : MonoBehaviour
                 break;
 
             case ItemType.Whistle:
-                if (slime != null)
-                {
-                    if (slime.IsRecalling) slime.CancelRecall();
-                    else slime.StartRecall();
-                    PlayClip(whistleClip);
-                }
+                // Q = 冲刺（限时加速），不再是"召回"。
+                // 成功 / 被拒绝（冷却中、待命时）都由史莱姆自己出声：
+                // sprintClip / sprintRefusedClip —— 所以这里不重复播 whistleClip，否则会响两声。
+                // 待命时按 Q 无效（TrySprint 返回 false）：要它动得先按 E 切 Follow，两个键分工不重叠。
+                if (slime != null) slime.TrySprint();
                 break;
 
             case ItemType.GuideStone:

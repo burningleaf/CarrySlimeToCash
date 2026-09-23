@@ -1186,8 +1186,10 @@ public static class SlimeDemoSetup
         Debug.Log("[呆呆史莱姆] 步骤 3/4 完成：第二关");
 
         // ---- 4) 重配"下一关"链路（此时 Level2 才存在）----
+        string level3 = Root + "/Scenes/Level3.unity";
         ConfigureNextScene(level1, File.Exists(level2) ? "Level2" : "");
-        ConfigureNextScene(level2, "");
+        ConfigureNextScene(level2, File.Exists(level3) ? "Level3" : "");
+        ConfigureNextScene(level3, "");
 
         ReportBuildScenes();
         AssetDatabase.SaveAssets();
@@ -1203,7 +1205,7 @@ public static class SlimeDemoSetup
             joined += "\n    [" + (s.enabled ? "OK" : "--") + "] " + s.path;
 
         Debug.Log("[呆呆史莱姆] Build Settings 现状（顺序 = 关卡流程）：" + joined +
-                  "\n    （应该是 MainMenu → LevelSelect → Level1 → Level2）");
+                  "\n    （应该是 MainMenu → LevelSelect → Level0 → Level1 → Level2 → Level3）");
     }
     // ======================= ⑬ 主菜单 + 关卡选择（C 阶段）=======================
 
@@ -1254,6 +1256,7 @@ public static class SlimeDemoSetup
         string testPath = Root + "/Scenes/Test.unity";
         string level1Path = Root + "/Scenes/Level1.unity";
         string level2Path = Root + "/Scenes/Level2.unity";
+        string level3Path = Root + "/Scenes/Level3.unity";
 
         if (File.Exists(testPath) && !File.Exists(level1Path))
         {
@@ -1280,7 +1283,7 @@ public static class SlimeDemoSetup
         // ---- 3) 生成关卡选择场景 ----
         BuildLevelSelectScene(font, white, starOn, starOff);
 
-        // ---- 4) 注册 Build Settings（顺序：MainMenu → LevelSelect → Level0 → Level1 → Level2）----
+        // ---- 4) 注册 Build Settings（顺序：MainMenu → LevelSelect → Level0 → Level1 → Level2 → Level3）----
         // 注意：关卡选择界面在运行时是【按 Build Settings 里实际存在的场景】生成卡片的，
         // 所以这里漏掉哪个场景，选关界面就会少一张卡。
         string level0Path = Root + "/Scenes/Level0.unity";
@@ -1292,12 +1295,14 @@ public static class SlimeDemoSetup
         if (File.Exists(level0Path)) buildOrder.Add(level0Path);   // 教程关（还没生成就跳过）
         buildOrder.Add(level1Path);
         buildOrder.Add(level2Path);
+        buildOrder.Add(level3Path);                                // 第 4 关（还没生成时 SetBuildScenes 会跳过并警告）
         SetBuildScenes(buildOrder.ToArray());
 
         // ---- 5) 配置"下一关"跳转 ----
         ConfigureNextScene(level0Path, "Level1");
         ConfigureNextScene(level1Path, File.Exists(level2Path) ? "Level2" : "");
-        ConfigureNextScene(level2Path, "");
+        ConfigureNextScene(level2Path, File.Exists(level3Path) ? "Level3" : "");
+        ConfigureNextScene(level3Path, "");
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
@@ -1370,7 +1375,7 @@ public static class SlimeDemoSetup
         const float cardW = 340f;
         const float cardH = 230f;
 
-        string[] sceneNames = { "Level0", "Level1", "Level2" };
+        string[] sceneNames = { "Level0", "Level1", "Level2", "Level3" };
         Button[] buttons = new Button[levelCount];
         TMP_Text[] labels = new TMP_Text[levelCount];
         TMP_Text[] coinTexts = new TMP_Text[levelCount];
