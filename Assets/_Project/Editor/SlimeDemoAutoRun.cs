@@ -33,7 +33,8 @@ public static class SlimeDemoAutoRun
         get { return Path.GetFullPath(Path.Combine(Application.dataPath, "../Library/SlimeDemoAutoRun.done")); }
     }
 
-    [MenuItem("Tools/呆呆史莱姆/⑦ 清除自动搭建标记（下次编译重跑）", false, 107)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/⑦ 清除自动搭建标记（下次编译重跑）", false, 107)]
     public static void ClearMarker()
     {
         try

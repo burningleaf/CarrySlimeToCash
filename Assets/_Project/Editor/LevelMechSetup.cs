@@ -141,7 +141,7 @@ public static class LevelMechSetup
     /// 命令行入口（不要加 -quit 由它自己结束也无所谓，这个方法是同步的）：
     ///   Unity.exe -batchmode -quit -projectPath ... -executeMethod LevelMechSetup.BatchCreateMechLevel
     /// </summary>
-    [MenuItem("Tools/呆呆史莱姆/▷ 建机关测试关 LevelMech", false, 84)]
+    [MenuItem("Tools/呆呆史莱姆/▷ 建机关测试关 LevelMech", false, 18)]
     public static void BatchCreateMechLevel()
     {
         // 1) 先写 JSON —— 数据是唯一真相源

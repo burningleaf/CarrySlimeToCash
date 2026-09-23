@@ -45,9 +45,30 @@ public static class SlimeDemoSetup
 
     // ======================= 菜单 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/⑤ 一键全做（推荐）", false, 100)]
+    /// <summary>
+    /// 菜单入口：一键全做。
+    /// ⚠ 确认框只在这个菜单包装里，且被 `!Application.isBatchMode` 包住 ——
+    ///   批处理模式下不弹窗（默认放行），不会把 `-executeMethod` 卡死；
+    ///   真正的实现（EnsureFolders / BuildTestScene / AutoWireActiveScene …）
+    ///   都是普通 public 方法，被自动搭建钩子 SlimeDemoAutoRun 直接调用，那条路径上本来就没有弹窗。
+    /// </summary>
+    [MenuItem("Tools/呆呆史莱姆/⑤ 一键全做（推荐）", false, 90)]
     public static void RunAll()
     {
+        if (!Application.isBatchMode)
+        {
+            bool go = EditorUtility.DisplayDialog(
+                "一键全做？",
+                "会【重建 / 覆盖】这些内容：\n\n" +
+                "  · 重新生成测试场景 Assets/_Project/Scenes/Test_Auto.unity（不动你现有的 Test.unity）\n" +
+                "  · Layer（11 个）/ Tag（11 个）/ Physics2D 碰撞矩阵 按代码重写\n" +
+                "  · 当前场景里所有【空】的引用被自动填上（已经拖好的不动）\n" +
+                "  · 会重画占位美术 PNG（PPU 由 VisualFix 自动修正）\n\n" +
+                "要继续吗？",
+                "全做", "取消");
+            if (!go) return;
+        }
+
         Debug.Log("========== 呆呆史莱姆：一键搭建开始 ==========");
         EnsureFolders();
         SetupLayersAndTags();
@@ -68,7 +89,8 @@ public static class SlimeDemoSetup
         if (!Application.isBatchMode) EditorUtility.DisplayDialog("呆呆史莱姆", msg, "好");
     }
 
-    [MenuItem("Tools/呆呆史莱姆/① 初始化工程设置（Layer/Tag/碰撞矩阵）", false, 101)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/① 初始化工程设置（Layer/Tag/碰撞矩阵）", false, 101)]
     public static void InitProjectSettings()
     {
         EnsureFolders();
@@ -77,7 +99,8 @@ public static class SlimeDemoSetup
         Debug.Log("[呆呆史莱姆] ① 工程设置完成。");
     }
 
-    [MenuItem("Tools/呆呆史莱姆/② 自动连接当前场景的引用", false, 102)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/② 自动连接当前场景的引用", false, 102)]
     public static void AutoWireMenu()
     {
         int n = AutoWireActiveScene();
@@ -85,14 +108,16 @@ public static class SlimeDemoSetup
         Debug.Log("[呆呆史莱姆] ② 自动连接完成，填补了 " + n + " 个空引用。");
     }
 
-    [MenuItem("Tools/呆呆史莱姆/③ 生成占位美术", false, 103)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/③ 生成占位美术", false, 103)]
     public static void MakeArt()
     {
         Sprite s = CreateSquareSprite();
         Debug.Log("[呆呆史莱姆] ③ 占位美术：" + (s != null ? "已就绪" : "生成失败"));
     }
 
-    [MenuItem("Tools/呆呆史莱姆/④ 生成全新测试场景 Test_Auto", false, 104)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/④ 生成全新测试场景 Test_Auto", false, 104)]
     public static void BuildSceneMenu()
     {
         Sprite s = CreateSquareSprite();
@@ -101,13 +126,14 @@ public static class SlimeDemoSetup
         ReportEmptyReferences();
     }
 
-    [MenuItem("Tools/呆呆史莱姆/⑥ 体检报告（列出没连上的引用）", false, 106)]
+    [MenuItem("Tools/呆呆史莱姆/⑥ 体检报告（列出没连上的引用）", false, 30)]
     public static void ReportMenu()
     {
         ReportEmptyReferences();
     }
 
-    [MenuItem("Tools/呆呆史莱姆/⑧ 数值对齐：史莱姆重力 = 玩家重力", false, 108)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/⑧ 数值对齐：史莱姆重力 = 玩家重力", false, 108)]
     public static void AlignNumbersMenu()
     {
         AlignSlimeNumbers();
@@ -576,7 +602,7 @@ public static class SlimeDemoSetup
 
     // ======================= ◉ 关卡可视性检查 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/◉ 关卡可视性检查（有没有东西在画面外）", false, 116)]
+    [MenuItem("Tools/呆呆史莱姆/◉ 关卡可视性检查（有没有东西在画面外）", false, 31)]
     public static void CheckLevelVisibility()
     {
         Scene scene = SceneManager.GetActiveScene();
@@ -658,12 +684,28 @@ public static class SlimeDemoSetup
         return _uiPanelSprite;
     }
 
-    [MenuItem("Tools/呆呆史莱姆/✦ 一键美化画面（抗锯齿 + 相机 + 描边美术 + UI）", false, 98)]
+    /// <summary>菜单入口：一键美化画面（带确认框，因为它会覆盖 4 个场景的贴图引用与相机设置）。
+    /// 确认框被 `!Application.isBatchMode` 包住：批处理不弹窗、默认放行。真实实现是无框的 ApplyVisualPolish()。</summary>
+    [MenuItem("Tools/呆呆史莱姆/✦ 一键美化画面（抗锯齿 + 相机 + 描边美术 + UI）", false, 91)]
     public static void ApplyVisualPolishMenu()
     {
+        if (!Application.isBatchMode)
+        {
+            bool go = EditorUtility.DisplayDialog(
+                "一键美化画面？",
+                "会【重画贴图 + 改场景】这些内容：\n\n" +
+                "  · 重画 Sprite_Box / Sprite_Circle / Sprite_Ground / UI_Panel（同路径覆盖，PPU 自动修正）\n" +
+                "  · 主菜单 / 选关 / Level1 / Level2 四个场景：换掉旧贴图引用 + 调相机抗锯齿等设置\n" +
+                "  · 会写盘保存这 4 个场景\n\n" +
+                "（UI 圆角要再点一次「✦✦ 一键美化全部」）要继续吗？",
+                "美化", "取消");
+            if (!go) return;
+        }
+
         ApplyVisualPolish();
     }
 
+    /// <summary>真实实现（无任何对话框）。供菜单包装与批处理入口调用。</summary>
     public static void ApplyVisualPolish()
     {
         Debug.Log("[呆呆史莱姆] ========== 开始视觉美化 ==========");
@@ -702,7 +744,28 @@ public static class SlimeDemoSetup
         Debug.Log("[呆呆史莱姆] ========== 视觉美化完成（UI 需要再点一次 ⑭ 重建）==========");
     }
 
-    [MenuItem("Tools/呆呆史莱姆/✦✦ 一键美化全部（画面 + 重建所有 UI）", false, 97)]
+    /// <summary>菜单入口：一键美化全部（画面 + 重建所有 UI）。带确认框，覆盖范围比 ✦ 更大。
+    /// 确认框被 `!Application.isBatchMode` 包住：批处理不弹窗、默认放行。真实实现是无框的 ApplyFullPolish()。</summary>
+    [MenuItem("Tools/呆呆史莱姆/✦✦ 一键美化全部（画面 + 重建所有 UI）", false, 92)]
+    public static void ApplyFullPolishMenu()
+    {
+        if (!Application.isBatchMode)
+        {
+            bool go = EditorUtility.DisplayDialog(
+                "一键美化全部？",
+                "会把 ✦ 一键美化画面 的全部动作做一遍，并且【再重建 Level1 / Level2 的 UI】：\n\n" +
+                "  · 重画贴图（同路径覆盖，PPU 自动修正）+ 4 个场景换贴图 / 调相机\n" +
+                "  · Level1 / Level2：重建 HUD 与暂停/结算面板、自动连接空引用、强制中文字体\n" +
+                "  · 会写盘保存这些场景（已有的 UI 会被替换掉）\n\n" +
+                "要继续吗？",
+                "美化全部", "取消");
+            if (!go) return;
+        }
+
+        ApplyFullPolish();
+    }
+
+    /// <summary>真实实现（无任何对话框）：画面美化 + 重建 Level1/Level2 的 UI。</summary>
     public static void ApplyFullPolish()
     {
         ApplyVisualPolish();
@@ -1083,7 +1146,7 @@ public static class SlimeDemoSetup
         }
     }
 
-    [MenuItem("Tools/呆呆史莱姆/✚ 修复全部场景（补缺失引用 + 修正中文字体）", false, 115)]
+    [MenuItem("Tools/呆呆史莱姆/✚ 修复全部场景（补缺失引用 + 修正中文字体）", false, 32)]
     public static void RepairAllScenesMenu()
     {
         RepairAllScenes();
@@ -1154,7 +1217,9 @@ public static class SlimeDemoSetup
     /// 合成一次调用。既可以在菜单里点，也可以用命令行跑：
     ///   Unity.exe -batchmode -quit -projectPath &lt;工程路径&gt; -executeMethod SlimeDemoSetup.BuildAll -logFile &lt;日志&gt;
     /// </summary>
-    [MenuItem("Tools/呆呆史莱姆/★ 一键全部构建（重命名 + 清UI + 第二关 + 主菜单选关）", false, 99)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // ⚠ 它同时是 -executeMethod 的批处理入口（SlimeDemoSetup.BuildAll），所以这里绝不能加确认框。
+    // [MenuItem("Tools/呆呆史莱姆/★ 一键全部构建（重命名 + 清UI + 第二关 + 主菜单选关）", false, 99)]
     public static void BuildAll()
     {
         Debug.Log("[呆呆史莱姆] ========== 一键全部构建 开始 ==========");
@@ -1209,7 +1274,8 @@ public static class SlimeDemoSetup
     }
     // ======================= ⑬ 主菜单 + 关卡选择（C 阶段）=======================
 
-    [MenuItem("Tools/呆呆史莱姆/⑭ 重建当前场景的 UI（清理重复的 HUD）", false, 114)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/⑭ 重建当前场景的 UI（清理重复的 HUD）", false, 114)]
     public static void RebuildUiMenu()
     {
         BuildHud();
@@ -1219,7 +1285,8 @@ public static class SlimeDemoSetup
         Debug.Log("[呆呆史莱姆] ⑭ 当前场景的 UI 已重建（重复的会先被清掉）");
     }
 
-    [MenuItem("Tools/呆呆史莱姆/⑬ 生成主菜单与关卡选择（并注册 Build Settings）", false, 113)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/⑬ 生成主菜单与关卡选择（并注册 Build Settings）", false, 113)]
     public static void BuildMenusMenu()
     {
         BuildMenus();
@@ -1523,7 +1590,8 @@ public static class SlimeDemoSetup
     }
     // ======================= ⑫ 第二关：多层平台 + 水道 + 路径石 + 投掷深坑 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/⑫ 生成第二关 Level2（长关卡，带相机跟随）", false, 112)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/⑫ 生成第二关 Level2（长关卡，带相机跟随）", false, 112)]
     public static void BuildLevel2Menu()
     {
         BuildLevel2();
@@ -1749,7 +1817,8 @@ public static class SlimeDemoSetup
     }
     // ======================= ⑪ 暂停菜单 + 结算面板 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/⑪ 搭暂停菜单与结算面板", false, 111)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/⑪ 搭暂停菜单与结算面板", false, 111)]
     public static void BuildPanelsMenu()
     {
         int n = BuildPanels();
@@ -1915,7 +1984,8 @@ public static class SlimeDemoSetup
     }
     // ======================= ⑩ HUD 与物品栏 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/⑩ 搭 HUD 与物品栏 UI", false, 110)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/⑩ 搭 HUD 与物品栏 UI", false, 110)]
     public static void BuildHudMenu()
     {
         int n = BuildHud();
@@ -1953,7 +2023,7 @@ public static class SlimeDemoSetup
         Sprite iconWhistle = CreateColorSprite("Icon_Whistle", new Color(1f, 0.85f, 0.25f));
         Sprite iconStone = CreateColorSprite("Icon_GuideStone", new Color(0.30f, 0.95f, 0.95f));
         Sprite iconSlot4 = CreateColorSprite("Icon_Slot4", new Color(0.65f, 0.45f, 0.95f));
-        // 跳跃云朵瓶（第 4 格）：像素画由 Tools/美术/生成像素素材 产出同名 PNG；这里只做"没有图时的浅蓝占位"
+        // 跳跃云朵瓶（第 4 格）：像素画由 Tools/呆呆史莱姆/▨ 生成像素素材 产出同名 PNG；这里只做"没有图时的浅蓝占位"
         Sprite iconCloudBottle = CreateColorSprite("Icon_CloudBottle", new Color(0.77f, 0.91f, 0.96f));
 
         // ---------- Canvas ----------
@@ -2311,7 +2381,8 @@ public static class SlimeDemoSetup
     }
     // ======================= ⑨ 往当前场景补关卡元素 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/⑨ 往当前场景补关卡元素（尖刺/金币/回血球/收购站）", false, 109)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // [MenuItem("Tools/呆呆史莱姆/⑨ 往当前场景补关卡元素（尖刺/金币/回血球/收购站）", false, 109)]
     public static void AddLevelElementsMenu()
     {
         int n = AddLevelElements();

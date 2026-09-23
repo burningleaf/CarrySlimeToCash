@@ -93,7 +93,7 @@ public static class AssetWiring
 
     // ======================= 菜单 / 命令行入口 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/♪ 音效接线（全部场景 + 预制体）", false, 83)]
+    [MenuItem("Tools/呆呆史莱姆/♪ 音效接线（全部场景 + 预制体）", false, 22)]
     public static void WireMenu()
     {
         BatchWireAssets();

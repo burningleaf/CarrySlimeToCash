@@ -48,7 +48,7 @@ public static class MuralWiring
 
     // ======================= 菜单 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/▣▣ 接线象形图路牌（Level0）", false, 80)]
+    [MenuItem("Tools/呆呆史莱姆/▣▣ 接线象形图路牌（Level0）", false, 24)]
     public static void BatchWireMurals()
     {
         string jsonPath = LevelDataWindow.LevelsDir + "/" + LevelName + ".json";

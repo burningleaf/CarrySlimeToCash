@@ -2,9 +2,12 @@
 //  MuralGenerator.cs —— 《带呆呆史莱姆越障换钱》象形图路牌生成器（流5：美术与音频）
 //
 //  干什么：
-//    程序化画出教学关 Level0 路牌上的 15 张"象形图"（64×64 PNG，透明底 + 近白图案），
+//    程序化画出教学关 Level0 路牌上的 20 张"象形图"（64×64 PNG，透明底 + 近白图案），
 //    并顺手把每张图的 TextureImporter 设好
-//    （Sprite / Single / Point / 无 Mipmap / 无压缩 / Clamp / PPU 32 / FullRect / Center）。
+//    （Sprite / Single / Point / 无 Mipmap / 无压缩 / Clamp / PPU 40 / FullRect / Center）。
+//    ⚠ PPU 是 40（不是 32）：磁盘上现有 mural 的 .meta 实测就是 40，64px = 1.6 世界单位 = 牌面高。
+//      写回 32 会把已经画好的图放大 1.25 倍并上下溢出牌面。生成完 VisualFix.BatchFixImportPpu()
+//      也会按「Murals → PPU 40」把它掰回来（见 VisualFix.WantedPpu）。
 //
 //  为什么：
 //    LevelBuilder.BuildMural 现在挂的是占位文字（showMuralLabels = true）。
@@ -12,7 +15,7 @@
 //    ⚠ 接线不在这一个文件里做 —— 那是另一轮的事，本文件只产图。
 //
 //  怎么用：
-//    · 菜单：Tools/呆呆史莱姆/▣ 生成象形图路牌（15 张 Mural PNG）
+//    · 菜单：Tools/呆呆史莱姆/▣ 生成象形图路牌（20 张 Mural PNG）
 //    · 命令行：Unity.exe -batchmode -quit -projectPath <项目路径>
 //              -executeMethod MuralGenerator.BatchGenerateMurals
 //
@@ -72,7 +75,7 @@ public static class MuralGenerator
     //  二、入口
     // =================================================================================
 
-    [MenuItem("Tools/呆呆史莱姆/▣ 生成象形图路牌（15 张 Mural PNG）", false, 82)]
+    [MenuItem("Tools/呆呆史莱姆/▣ 生成象形图路牌（20 张 Mural PNG）", false, 23)]
     public static void GenerateMuralsMenu()
     {
         MuralGenerateAll();
@@ -173,6 +176,14 @@ public static class MuralGenerator
         Debug.Log(string.Format(
             "[MuralGenerator] 输出目录：{0}（{1}）；导入设置：Sprite/Single/Point/无Mipmap/无压缩/Clamp/PPU {2}/FullRect/Center",
             muralOutputDir, absDir, muralPixelsPerUnit));
+
+        // ⚠ 生成即自愈（t44/F1，第二道防线）：上面写盘用的是 muralPixelsPerUnit（当前 40，是对的），
+        //   但不能再假设它永远对 —— 一旦被改错，壁画画完就带着错的 PPU 上架（64px 图会缩放 1.25 倍并上下溢出牌面）。
+        //   这里统一按 VisualFix.WantedPpu（Murals/** → 40）把导入设置掰回来。
+        //   放在 MuralGenerateAll() 里（而不是只放在 BatchGenerateMurals 里）：菜单入口 GenerateMuralsMenu()
+        //   与批处理入口 BatchGenerateMurals() 走的是同一个方法，两条路径都能兜住 ——
+        //   与 PixelArtGenerator.GenerateAll() 的收口方式保持一致。
+        VisualFix.BatchFixImportPpu();
     }
 
     /// <summary>统一导入设置。顺序有讲究：必须先 ImportAsset 才能取到 importer；
@@ -441,7 +452,7 @@ public static class MuralGenerator
         c.Box(25, 4, 26, 9, k);
 
         // ×2：两个 E 键帽用箭头串起来 + 第二个加圈 = "同一件事做两次"
-        // （原来的"两个叠放小方块"读不出"按两次"，见壁画规格文档 §2.4-1）
+        // （原来的"两个叠放小方块"读不出"按两次"，见 壁画规格文档 §2.4-1）
         c.KeyBadge(27f, 44f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);
         c.Arrow(32f, 60f, 44f, 60f, muralLineWidth, 5f, k);
         c.KeyBadge(49f, 44f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);

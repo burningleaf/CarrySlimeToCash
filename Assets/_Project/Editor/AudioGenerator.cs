@@ -16,21 +16,27 @@ public static class AudioGenerator
     public const float NormalizeCeiling = 0.98f;
     public const double SquareDuty = 0.5;
     public const double NoiseLevel = 0.18;
-    private const string MenuPath = "Tools/DAIDAI/GenAudio";
+    /// <summary>
+    /// 菜单路径（已归位）：原来在没人看得懂的 `Tools/DAIDAI/GenAudio`（"DAIDAI" 是历史遗留名），
+    /// 现在收进主菜单「呆呆史莱姆」下，与美术生成器并列。
+    /// 批处理入口 `AudioGenerator.BatchGenerateAudio` 与 `菜单 GenerateAudioMenu` 的分工不变。
+    /// </summary>
+    private const string MenuPath = "Tools/呆呆史莱姆/♪ 生成音效素材";
     private const double DefAttack = 0.008;
     private const double DefDecay = 0.120;
     private const double DefSustain = 0.002;
     private const double DefRelease = 0.015;
 
 #if !AUDIOGEN_VERIFY
-    [MenuItem(MenuPath, false, 96)]
+    [MenuItem(MenuPath, false, 21)]
     public static void GenerateAudioMenu()
     {
         int n = GenerateAll();
         string msg = "gen " + n + " wav -> " + AudioRoot;
-        if (!Application.isBatchMode) EditorUtility.DisplayDialog("daidai", msg, "ok");
+        if (!Application.isBatchMode) EditorUtility.DisplayDialog("生成音效素材", msg, "ok");
     }
 
+    /// <summary>批处理入口（-executeMethod AudioGenerator.BatchGenerateAudio），无对话框。</summary>
     public static void BatchGenerateAudio()
     {
         GenerateAll();

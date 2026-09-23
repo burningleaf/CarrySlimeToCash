@@ -37,7 +37,7 @@ public static class LevelDataWindow
 
     // ======================= 菜单 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/⓪-1 导出当前场景 → LevelData JSON", false, 90)]
+    [MenuItem("Tools/呆呆史莱姆/⓪-1 导出当前场景 → LevelData JSON", false, 10)]
     public static void ExportMenu()
     {
         Scene scene = EditorSceneManager.GetActiveScene();
@@ -47,7 +47,7 @@ public static class LevelDataWindow
         Report(scene.name, r);
     }
 
-    [MenuItem("Tools/呆呆史莱姆/⓪-2 从 LevelData JSON 重建关卡", false, 91)]
+    [MenuItem("Tools/呆呆史莱姆/⓪-2 从 LevelData JSON 重建关卡", false, 11)]
     public static void RebuildMenu()
     {
         Scene scene = EditorSceneManager.GetActiveScene();
@@ -56,7 +56,7 @@ public static class LevelDataWindow
         if (!ok) EditorUtility.DisplayDialog("重建关卡", msg, "好");
     }
 
-    [MenuItem("Tools/呆呆史莱姆/⓪-3 往返一致性检查（导出→重建→再导出）", false, 92)]
+    [MenuItem("Tools/呆呆史莱姆/⓪-3 往返一致性检查（导出→重建→再导出）", false, 12)]
     public static void RoundTripMenu()
     {
         Scene scene = EditorSceneManager.GetActiveScene();
@@ -67,7 +67,7 @@ public static class LevelDataWindow
 
     // ======================= 收益公式自检 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/⓪-5 收益公式自检（打出数值表）", false, 93)]
+    [MenuItem("Tools/呆呆史莱姆/⓪-5 收益公式自检（打出数值表）", false, 13)]
     public static void ScoreTableMenu()
     {
         Debug.Log(BuildScoreTable(EditorSceneManager.GetActiveScene()));
@@ -816,7 +816,7 @@ public static class LevelDataWindow
         //      stripped 实例组件，落盘值 = prefab 资产值 + 该实例的 m_Modifications 覆盖表；
         //      LevelBuilder 直接改 C# 字段绕过了 Inspector 的 SerializedObject 通道，不进覆盖表就没救
         //      （06_问题.md #24 的 stoneCount 就是这个坑，症状是"改 JSON 不生效"；
-        //        判据与场景 YAML 证据见项目内部审计记录 §1/§3）。
+        //        判据与场景 YAML 证据见 _workflow\_审计_prefab实例字段丢失.md §1/§3）。
         //      · inventory  = 本关发放哪些物品（meta.itemGrants）← 本次修的就是它
         //      · pathFollow = 开局引导石颗数（meta.startStones）← #24 本体，同一个坑
         //      ⚠ 必须放在 AutoWireMenu 之后：AutoWire 也会写实例字段（它自己会做记录），
@@ -844,7 +844,7 @@ public static class LevelDataWindow
     ///   Unity 文档也写明：不调 RecordPrefabInstancePropertyModifications，对实例的改动会丢失
     ///   （docs.unity3d.com/2022.3/Documentation/ScriptReference/PrefabUtility.RecordPrefabInstancePropertyModifications.html）。
     ///   `LevelBuilder.Build` 是运行时脚本（不引用 UnityEditor）⇒ 登记这一步只能放在编辑器侧这里。
-    ///   判据与场景 YAML 证据见项目内部审计记录 §1 / §3。
+    ///   判据与场景 YAML 证据见 项目内部审计记录 §1 / §3。
     ///
     /// 为什么要"先清"：
     ///   RecordPrefabInstancePropertyModifications 只负责把【当前的差异】记进覆盖表，不保证清旧账。
@@ -1325,7 +1325,9 @@ public static class LevelDataWindow
     /// 之所以做成菜单而不是只留命令行：Unity 开着的时候跑不了批处理，而做关卡要反复迭代。
     /// ⚠ 会覆盖 Level1 现有的关卡内容（地形 / 金币 / 检查点 / 终点），场景模板不动，且会先备份。
     /// </summary>
-    [MenuItem("Tools/呆呆史莱姆/▷ 重做 Level1 关卡内容（覆盖，会先备份）", false, 87)]
+    // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
+    // ⚠ 批处理入口 LevelDataWindow.BatchRebuildLevel1 仍在（本菜单包装里的确认框随之不再可达）。
+    // [MenuItem("Tools/呆呆史莱姆/▷ 重做 Level1 关卡内容（覆盖，会先备份）", false, 87)]
     public static void RebuildLevel1Menu()
     {
         bool go = EditorUtility.DisplayDialog(
@@ -1592,7 +1594,7 @@ public class LevelDataEditorWindow : EditorWindow
     static readonly string[] TerrainKindNames = Enum.GetNames(typeof(TerrainKind));
     static readonly string[] ObjectKindNames = Enum.GetNames(typeof(LevelObjectKind));
 
-    [MenuItem("Tools/呆呆史莱姆/◇ 关卡数据编辑器（表格改数值，不碰文本）", false, 89)]
+    [MenuItem("Tools/呆呆史莱姆/◇ 关卡数据编辑器（表格改数值，不碰文本）", false, 14)]
     public static void Open()
     {
         LevelDataEditorWindow w = GetWindow<LevelDataEditorWindow>("关卡数据编辑器");

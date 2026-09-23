@@ -1614,13 +1614,13 @@ public static class LevelSolver
 
     // ======================= 菜单入口 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/◇◇-1 求解器自检（对答案，改完求解器必跑）", false, 85)]
+    [MenuItem("Tools/呆呆史莱姆/◇◇-1 求解器自检（对答案，改完求解器必跑）", false, 17)]
     public static void SolverSelfTestMenu()
     {
         BatchSolverSelfTest();
     }
 
-    [MenuItem("Tools/呆呆史莱姆/◇◇ 求解当前关卡（最短时间 / 金币取舍 / 逃课检测）", false, 86)]
+    [MenuItem("Tools/呆呆史莱姆/◇◇ 求解当前关卡（最短时间 / 金币取舍 / 逃课检测）", false, 16)]
     public static void SolveActiveMenu()
     {
         Scene scene = EditorSceneManager.GetActiveScene();

@@ -16,18 +16,24 @@
 //   3. Pivot 统一 Center。这个工程的角色精灵挂在 transform 中心、与碰撞盒同心，
 //      用 BottomCenter 会让角色浮起来半个身位。
 //   4. 尺寸必须和真工程原素材一致：环境/面板 128×128，图标/Square_White 16×16，
-//      角色/道具/特效 32×32。PPU 固定 32，所以 128px = 4×4 世界单位。
-//      把 128 写成 32 会让世界尺寸缩成 1/4，整套视觉直接坏掉。
+//      角色/道具/特效 32×32。
+//      ⚠【PPU 不在这里定】工程口径是「世界精灵 PPU = 贴图像素宽」（128px→128、16px→16，
+//      都是 1×1 世界单位），唯一出处是 VisualFix.WantedPpu（路牌另有 40 的规则）。
+//      下面的 pixelsPerUnit 只是"写盘那一刻的落盘值"：本类生成流程末尾会自动调用
+//      VisualFix.BatchFixImportPpu() 自愈 ⇒ 最终口径由 WantedPpu 裁决，改错也不会留后遗症。
+//      为什么加这一步：2026-09-23 的事故就是把 128px 的图落盘成 PPU32 → 地图像素放大 4 倍、
+//      HUD 撑满屏（碰撞体却是对的 ⇒ "走起来对、看着不对"），整关没法玩。
 //   5. 【画布是共享的】—— 见下面 canvas / W / H / k / stroke 五个静态字段。
 //      历史 bug：每个 Paint* 自己 new 一个 Drawing 往里面画，
 //      而 Paint() 返回的是另一个没人写过的 Drawing 的缓冲区 → 23 张图全是全透明（97 字节）。
 //
 // 用法：
-//   菜单  Tools / 美术 / 生成像素素材            ← 人用
+//   菜单  Tools / 呆呆史莱姆 / ▨ 生成像素素材（会重写 Art，PPU 自动修正）   ← 人用
 //   Unity.exe -batchmode -quit -executeMethod PixelArtGenerator.BatchGeneratePixelArt   ← 机器用
 //   （流5 的一键入口 Flow5Tools.BatchGenerateAllAssets 会转调本方法）
 //
 // 只生成 / 覆盖 Art 下的 PNG，不动脚本、不动场景、不动预制体、不动关卡 JSON。
+// 写盘结束后统一跑一次 VisualFix.BatchFixImportPpu()（生成即自愈，见上面约定 4）。
 // ---------------------------------------------------------------------------
 
 using System;
@@ -148,14 +154,15 @@ public static class PixelArtGenerator
     // 六、入口
     // =======================================================================
 
-    [MenuItem("Tools/美术/生成像素素材")]
+    [MenuItem("Tools/呆呆史莱姆/▨ 生成像素素材（会重写 Art，PPU 自动修正）", false, 20)]
     public static void GenerateAllMenu()
     {
         int n = GenerateAll();
         EditorUtility.DisplayDialog(
             "像素素材生成完毕",
             "本次写出 " + n + " 个 PNG（其余按开关跳过）。\n\n" +
-            "环境图是同路径覆盖 → LevelBuilder 的 blockSprite / circleSprite 引用会自动指向新图。",
+            "环境图是同路径覆盖 → LevelBuilder 的 blockSprite / circleSprite 引用会自动指向新图。\n" +
+            "PPU 已由 VisualFix.WantedPpu 自动修正（世界精灵 = 贴图像素宽，路牌 = 40）。",
             "好");
     }
 
@@ -189,6 +196,13 @@ public static class PixelArtGenerator
             if (!groups.TryGetValue(e.group, out on) || !on) continue;
             if (WriteOne(e)) written++;
         }
+
+        // ⚠ 生成即自愈（唯一收口点）：上面写盘用的是 pixelsPerUnit，只是"落盘值"。
+        //   最终 PPU 口径由 VisualFix.WantedPpu 裁决（世界精灵 = 贴图像素宽、路牌 = 40）。
+        //   2026-09-23 的事故就是这里少了这一步：128px 的图落盘成 PPU32 → 地图放大 4 倍 / HUD 撑满屏。
+        //   ApplyImportSettings() 已经把贴图重新导入过，所以这里读到的宽高是真实的。
+        VisualFix.BatchFixImportPpu();
+
         return written;
     }
 
