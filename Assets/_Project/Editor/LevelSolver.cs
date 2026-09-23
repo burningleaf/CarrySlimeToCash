@@ -1,4 +1,4 @@
-﻿// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // LevelSolver.cs —— P2 关卡求解器（只放在 Editor 文件夹，不进游戏包）
 //
 // 它回答四个问题：
@@ -587,6 +587,28 @@ public static class LevelSolver
         public float parTime = 50f;
         public int coinTotal;
         public bool dumpSegments;
+
+        // ---- 【最优解 R*】掩码枚举的结果（玩家最多能赚多少）----
+        public int coinCount;                        // n：金币总数（含求解器"拿不到"的）
+        public long maskCount;                       // 2^n：枚举过的掩码总数
+        public bool bestComputed;                    // R* 有没有算出来（n 太大 / 不可达时为 false）
+        public string bestSkipReason = "";           // 没算的原因（要明确写出来，不许静默）
+        public float bestTime = float.MaxValue;      // R* 的耗时
+        public int bestPrice;                        // R* 的售价部分
+        public int bestCoinValue;                    // R* 捡到的金币面值合计
+        public int bestScore;                        // R* 总分 = 售价 + 金币
+        public int bestCoinCount;                    // R* 捡了几枚
+        public List<int> bestCoinIndexes = new List<int>();    // R* 选中的金币下标（对应 coins）
+        public List<string> bestPathDesc = new List<string>(); // R* 路线概览（段名，同 pathDesc 风格）
+        public int rushScore;                        // 冲刺（一枚不捡）的总分
+        public int greedyScore;                      // 贪心全拿（含拿不到的币）的总分
+        public float floorTime;                      // 掉血下限时刻：越过它之后时间不再掉血（免费）
+        public float bestNewGapPercent;              // 收益差 = (R* ÷ 冲刺 − 1) × 100
+        public float bestRouteTime;                  // R* 路线逐段最短时间之和（应当 = bestTime，用来钉回溯）
+        // R* 选中、但被**线性判据**标成"不划算"的币：它们为什么还是被捡（边际耗时 vs 单枚绕路）
+        public List<int> bestCheatIndexes = new List<int>();
+        public List<float> bestCheatMarginal = new List<float>();     // 在最优路线里多带上它的边际耗时
+        public List<float> bestCheatSolo = new List<float>();         // 它的单枚绕路代价（WorthIt 用的就是它）
     }
 
     public static Report Solve(LevelData data, Ability ab, HashSet<string> ignore)
@@ -727,7 +749,307 @@ public static class LevelSolver
         foreach (CoinInfo ci in r.coins) if (ci.Reachable) extra += ci.detour;
         r.allCollectTime = r.minTime >= float.MaxValue ? float.MaxValue : r.minTime + extra;
 
+        // 【最优解 R*】在（站点 × 金币掩码）状态空间上枚举，求"玩家最多能赚多少"。
+        // 放在这里是因为它要复用上面已经建好的图 g 与拓扑 topo（⛔ 不重建图）。
+        ComputeBestScore(r, g, topo);
+
         return r;
+    }
+
+    // ======================= 最优解 R*（掩码枚举） =======================
+    //
+    // 为什么要它：原来的收益差用"无脑把所有金币都拿"当分子 —— 里面混着被标成"不划算 ❌"的
+    //   陷阱金币，还混着求解器根本到不了的币，于是"奖励丰不丰厚"这个数字是虚的。
+    //   玩家实际会做的是**取舍**：R* = 在"捡哪些币"的所有组合里，结算收益最大的那个。
+    //
+    // 口径是「⊇ mask」而不是「恰好 mask」—— 这条是精确性的关键，理由：
+    //   金币是【走过节点就收】，玩家没法"路过却不捡"。若按"恰好收集了 mask"理解，
+    //   转移 mask → mask|bit_j 就隐含了"从 v 走到 coin_j 的路上不会碰到别的未收金币"，
+    //   这个假设不成立 ⇒ 算出来的 minTime 未必是"恰好 mask"可达的，分数会虚高。
+    //   「⊇ mask」= 收集了 mask 里的币、允许路上多收，它可以证明精确（双向夹逼）：
+    //     ① 任意 mask 的 minTime[mask] 都由**某条真实路径**实现（其实收集合 C ⊇ mask）
+    //        ⇒ score(mask) = price(t) + Σ_mask ≤ price(t) + Σ_C = 该路径真实得分 ≤ 真最优
+    //        ⇒ max ≤ 真最优
+    //     ② 设真最优路径 P* 的实收集合是 S、耗时 t*，则 mask = S 时 minTime[S] ≤ t*
+    //        ⇒ score(S) ≥ price(t*) + Σ_S = 真最优 ⇒ max ≥ 真最优
+    //   ⇒ 两边夹住，R* 就是真最优。（②成立的前提：S 本身是一个合法掩码 —— 它就是那个集合。）
+    //
+    // 实现：按整数递增枚举 mask。每轮到 mask 先做一次**多源 Dijkstra 闭包**（初值就是
+    //   minTime[mask][*]，沿现有走/跳/落边松弛）得到"从任意位置继续自由移动"的最短时间；
+    //   再用闭包结果向 mask|bit_j 松弛"最后一个币是 coin_j"。复用现有 Graph/Dijkstra/边权。
+
+    /// <summary>掩码枚举的金币上限。2^16 = 65536 个掩码 × 站点数仍是秒级；
+    /// 超过就只警告并跳过 R*（⛔ 不静默、不崩）—— 现在四关最多 16 枚。</summary>
+    public const int MaxMaskCoins = 16;
+
+    /// <summary>含 clamp01 的真实结算售价（= 顶部售价条能卖多少钱）。
+    /// ⚠ 不许换成线性近似：越过掉血下限 floorTime 之后时间**免费**，
+    ///    线性近似会把"多绕一会儿"算成一直掉钱，R* 就会系统性地不捡后段的币。</summary>
+    static int PriceAt(float time, int barMax, float drain)
+    {
+        if (time >= float.MaxValue) return 0;
+        return Mathf.RoundToInt(barMax * Mathf.Clamp01(1f - drain * time / 100f));
+    }
+
+    /// <summary>多源 Dijkstra 闭包：把 dist[off .. off+N) 当成"已有的到达时间"，
+    /// 沿边松弛出"从这里继续自由移动"的最短时间（就地修改）。
+    /// 为什么需要它：⊇ 口径下路径可以路过别的金币、可以先走到任意站点再回头，
+    /// 所以每次都要把"到任意站点的最短时间"闭包出来，才能正确地向下一个币转移。</summary>
+    static void Closure(List<Edge>[] g, float[] dist, int off, bool[] done)
+    {
+        int n = g.Length;
+        System.Array.Clear(done, 0, n);
+        for (int iter = 0; iter < n; iter++)
+        {
+            int u = -1;
+            float best = float.MaxValue;
+            for (int i = 0; i < n; i++)
+                if (!done[i] && dist[off + i] < best) { best = dist[off + i]; u = i; }
+            if (u < 0) break;                       // 剩下的都到不了
+            done[u] = true;
+
+            List<Edge> edges = g[u];
+            for (int k = 0; k < edges.Count; k++)
+            {
+                Edge e = edges[k];
+                if (done[e.to]) continue;
+                float nd = dist[off + u] + e.cost;
+                if (nd < dist[off + e.to]) dist[off + e.to] = nd;
+            }
+        }
+    }
+
+    /// <summary>枚举所有金币掩码，求 R*；并把选中集合/路线填进 Report。</summary>
+    static void ComputeBestScore(Report r, Graph g, Topology topo)
+    {
+        int n = r.coins.Count;
+        int N = g.n;
+        r.coinCount = n;
+        r.maskCount = n >= 62 ? long.MaxValue : (1L << n);
+
+        int barMax = LevelManager.BarMaxFor(r.parTime);
+        float drain = LevelManager.DrainRateFor(r.parTime);
+        r.floorTime = (1f - Mathf.Clamp01(LevelManager.barFloor)) * 100f / Mathf.Max(0.0001f, drain);
+
+        // 冲刺（一枚不捡）永远是合法解 ⇒ R* 不会比它差；先把它算出来当兜底与对照。
+        r.rushScore = PriceAt(r.minTime, barMax, drain);
+        // 对照用的"贪心全拿"总分（把陷阱金币、甚至求解器拿不到的币也算进分子）——
+        // 它是"不思考的玩家"的参照值，**不是可行解**，所以 R* 可能比它低（例如 Level3）。
+        r.greedyScore = (r.allCollectTime < float.MaxValue ? PriceAt(r.allCollectTime, barMax, drain) : 0) + r.coinTotal;
+
+        if (!r.goalReachable)
+        {
+            r.bestComputed = false;
+            r.bestSkipReason = "起点到不了终点（先修地形断点），R* 无从谈起";
+            return;
+        }
+        if (n > MaxMaskCoins)
+        {
+            r.bestComputed = false;
+            r.bestSkipReason = string.Format("金币 {0} 枚 > 上限 {1} 枚，掩码枚举会爆（该指标跳过）", n, MaxMaskCoins);
+            return;
+        }
+        if (r.startSeg < 0 || topo.startNode < 0 || topo.goalNode < 0)
+        {
+            r.bestComputed = false;
+            r.bestSkipReason = "起点/终点没有落脚段，图不完整";
+            return;
+        }
+
+        int masks = 1 << n;                       // n = 0 时 = 1（只有空集），不崩
+        int[] prev;                               // 只用来拿"从起点出发"的初始行
+        float[] fromStart = Dijkstra(g.fwd, topo.startNode, out prev);
+
+        float[] dist = new float[(long)masks * N];
+        for (int i = 0; i < dist.Length; i++) dist[i] = float.MaxValue;
+        for (int v = 0; v < N; v++) dist[v] = fromStart[v];      // mask = 0：普通最短路
+
+        // mask 的"面值合计"递推（低一位去掉 + 那一枚的面值），避免每个掩码都重扫一遍
+        int[] maskSum = new int[masks];
+        for (int m = 1; m < masks; m++)
+        {
+            int low = m & (-m);
+            int j = 0;
+            while ((low >> j) != 1) j++;
+            maskSum[m] = maskSum[m ^ low] + (j < n ? r.coins[j].value : 0);
+        }
+
+        // 回溯用：mask 是从哪个币转进来的（捡币顺序由 RecoverBestOrder 反推，见下）
+        bool[] done = new bool[N];
+        float bestScore = float.MinValue, bestTime = float.MaxValue;
+        int bestMask = 0;
+        // 每个掩码"到终点的最短时间"（= 该 mask 的 minTime[mask][goal]）。留着只为下面算边际耗时：
+        // 边际 = bestTime − minTime[bestMask 去掉那一枚][goal] ⇒ 直接回答"这枚币在最优路线里到底多花几秒"。
+        float[] goalOfMask = new float[masks];
+        for (int m = 0; m < masks; m++) goalOfMask[m] = float.MaxValue;
+
+        for (int mask = 0; mask < masks; mask++)
+        {
+            int off = mask * N;
+            Closure(g.fwd, dist, off, done);      // 闭包：minTime[mask][全部 v]
+
+            float t = dist[off + topo.goalNode];
+            goalOfMask[mask] = t;
+            if (t < float.MaxValue)
+            {
+                int score = PriceAt(t, barMax, drain) + maskSum[mask];
+                // 分数相同时取更快的（路线更好看，也更好解释）
+                if (score > bestScore || (score == bestScore && t < bestTime))
+                { bestScore = score; bestTime = t; bestMask = mask; }
+            }
+
+            for (int j = 0; j < n; j++)
+            {
+                if ((mask & (1 << j)) != 0) continue;
+                int coinNode = topo.coinNodes[j];
+                float tc = dist[off + coinNode];
+                if (tc >= float.MaxValue) continue;            // 这枚（现在还）到不了
+                int nm = mask | (1 << j);
+                if (tc < dist[nm * N + coinNode]) dist[nm * N + coinNode] = tc;
+            }
+        }
+
+        r.bestComputed = true;
+        r.bestTime = bestTime == float.MaxValue ? r.minTime : bestTime;
+        r.bestPrice = PriceAt(r.bestTime, barMax, drain);
+        r.bestCoinValue = maskSum[bestMask];
+        r.bestScore = r.bestPrice + r.bestCoinValue;
+        r.bestCoinCount = CountBits(bestMask);
+        r.bestNewGapPercent = r.rushScore > 0 ? (r.bestScore - r.rushScore) * 100f / r.rushScore : 0f;
+
+        // 捡币顺序：从终点往回推。⚠ 不能拿"最后一次转移记下的那个币"当最后一个 ——
+        // 目标值取的是 min_j (T[mask][j] + sp(coin_j → goal))，那个 argmin 未必是最后一次转移的币，
+        // 用它会让路线白跑一大圈（真踩过：报出来的路线耗时 63s，而 R* 只有 24s）。
+        r.bestCoinIndexes = RecoverBestOrder(topo, g, dist, N, bestMask, n);
+
+        // 线性判据（WorthIt）用的是【单枚往返】的绕路代价，而 R* 是【联合】最优：
+        //   · 顺路捎带时，某枚币的边际耗时可以远低于它的单枚绕路 ⇒ 线性判据说"不划算"的币也可能该捡；
+        //   · 一旦耗时越过掉血下限 floorTime，之后时间免费，后段的币更是白捡。
+        // 这两件事都不是 bug，但会让"R* 只捡值得捡的币"这种口径不成立 ——
+        // 所以把数字算出来（只对"选中但被判不划算"的少数几枚），让报告自己解释清楚。
+        foreach (int j in r.bestCoinIndexes)
+        {
+            if (j < 0 || j >= n || r.coins[j].WorthIt) continue;
+            float without = goalOfMask[bestMask ^ (1 << j)];
+            r.bestCheatIndexes.Add(j);
+            r.bestCheatMarginal.Add(without < float.MaxValue ? Mathf.Max(0f, r.bestTime - without) : -1f);
+            r.bestCheatSolo.Add(r.coins[j].detour);
+        }
+
+        BuildBestRoute(r, g, topo);
+    }
+
+    static int CountBits(int m)
+    {
+        int c = 0;
+        while (m != 0) { c += m & 1; m >>= 1; }
+        return c;
+    }
+
+    /// <summary>
+    /// 反推最优解里"捡币顺序"：从终点往回走，每一步在剩下的币里挑
+    /// `T[mask][j] + sp(coin_j → next)` 最小的那枚当"这一段的最后一个"。
+    /// 为什么必须这么做：目标值 = min_j(T[mask][j] + sp(coin_j→goal))，这个 argmin 未必是
+    /// "最后一次松弛记下的那个币"；拿错的话，打印出来的路线会比 bestTime 长一大截
+    /// （数字看着自洽、路线却是假的 —— 所以 BuildBestRoute 还会累加逐段耗时互相验证）。
+    /// </summary>
+    static List<int> RecoverBestOrder(Topology topo, Graph g, float[] dist, int N, int bestMask, int n)
+    {
+        List<int> order = new List<int>();
+        int mask = bestMask;
+        int next = topo.goalNode;                  // 先当成"从终点往回看"
+        int guard = 0;
+
+        while (mask != 0 && guard++ <= n + 1)
+        {
+            // sp(coin_j → next)：在**反向图**上从 next 求一次最短路（复用现有 Dijkstra）
+            int[] prevRev;
+            float[] toNext = Dijkstra(g.rev, next, out prevRev);
+
+            int bestJ = -1;
+            float bestV = float.MaxValue;
+            for (int j = 0; j < n; j++)
+            {
+                if ((mask & (1 << j)) == 0) continue;
+                int cn = topo.coinNodes[j];
+                float at = dist[(long)mask * N + cn];              // T[mask][j]
+                if (at >= float.MaxValue || toNext[cn] >= float.MaxValue) continue;
+                float v = at + toNext[cn];
+                if (v < bestV) { bestV = v; bestJ = j; }
+            }
+            if (bestJ < 0) break;                                  // 理论上不会：mask 可达就一定挑得出
+            order.Add(bestJ);
+            mask ^= (1 << bestJ);
+            next = topo.coinNodes[bestJ];
+        }
+
+        order.Reverse();                                           // 变成"先去哪枚，最后去哪枚"
+        return order;
+    }
+
+    /// <summary>
+    /// 重建 R* 的路线概览：按"捡币顺序"逐段用现有 Dijkstra 取最短段路径，拼成一条真走得到的路线。
+    /// 段与段之间可能路过别的金币 —— 这正是「⊇ mask」口径允许的（多捡不亏，只是分数按 mask 算）。
+    /// </summary>
+    static void BuildBestRoute(Report r, Graph g, Topology topo)
+    {
+        List<int> stops = new List<int>();
+        stops.Add(topo.startNode);
+        foreach (int j in r.bestCoinIndexes)
+        {
+            if (j < 0 || j >= topo.coinNodes.Count) continue;
+            stops.Add(topo.coinNodes[j]);
+        }
+        stops.Add(topo.goalNode);
+
+        List<int> chain = new List<int>();
+        float routeTime = 0f;
+        for (int k = 0; k + 1 < stops.Count; k++)
+        {
+            int a = stops[k], b = stops[k + 1];
+            if (a == b)
+            {
+                if (chain.Count == 0 || chain[chain.Count - 1] != b) chain.Add(b);
+                continue;
+            }
+            int[] prev;
+            float[] legDist = Dijkstra(g.fwd, a, out prev);
+            if (legDist[b] < float.MaxValue) routeTime += legDist[b];      // 逐段最短时间之和（应 = bestTime）
+            List<int> leg = new List<int>();
+            for (int cur = b; cur >= 0; cur = prev[cur])
+            {
+                leg.Add(cur);
+                if (cur == a) break;
+                if (leg.Count > g.n + 2) break;                  // 保险：prev 链异常时不死循环
+            }
+            if (leg.Count == 0 || leg[leg.Count - 1] != a)
+            {
+                // 这一段重建不出来（理论上不会发生）：至少把端点接上，别让路线断掉
+                if (chain.Count == 0 || chain[chain.Count - 1] != a) chain.Add(a);
+                if (chain.Count == 0 || chain[chain.Count - 1] != b) chain.Add(b);
+                continue;
+            }
+            leg.Reverse();
+            for (int q = 0; q < leg.Count; q++)
+            {
+                if (q == 0 && chain.Count > 0 && chain[chain.Count - 1] == leg[0]) continue;   // 接缝去重
+                chain.Add(leg[q]);
+            }
+        }
+
+        // 压成段名概览（与 pathDesc 同口径：只记跨段的切换，段内走路不刷屏）
+        r.bestRouteTime = routeTime;
+        int lastSeg = -1;
+        foreach (int cur in chain)
+        {
+            if (cur < 0 || cur >= topo.nodeSeg.Length) continue;      // 跳过虚拟节点
+            int seg = topo.nodeSeg[cur];
+            if (seg < 0 || seg == lastSeg || seg >= r.segs.Count) continue;
+            lastSeg = seg;
+            r.bestPathDesc.Add(string.Format("{0}(x{1:0.#}@y{2:0.#})",
+                string.IsNullOrEmpty(r.segs[seg].name) ? "#" + seg : r.segs[seg].name,
+                r.segs[seg].CenterX, r.segs[seg].y));
+        }
     }
 
     // ======================= 报告 =======================
@@ -762,7 +1084,7 @@ public static class LevelSolver
             sb.AppendLine("【可达性】起点 → 终点：**不可达 ❌**   玩家根本走不到终点，关卡有断点");
 
         if (r.pathDesc.Count > 0)
-            sb.AppendLine("【最优路线】" + string.Join(" → ", r.pathDesc.ToArray()));
+            sb.AppendLine("【最短时间路线】" + string.Join(" → ", r.pathDesc.ToArray()));
 
         if (r.pathSteps != null && r.pathSteps.Count > 0)
         {
@@ -808,7 +1130,7 @@ public static class LevelSolver
 
         // ---- 金币取舍 ----
         sb.AppendLine("【金币取舍】每秒时间价值 " + r.drainPerSecond.ToString("0.##") + " 元（= 全局掉钱速度）");
-        sb.AppendLine("    名字             位置       面值   绕路代价   预算    挂在哪一段（y=金币高度）      结论");
+        sb.AppendLine("    名字             位置       面值   绕路代价   预算    挂在哪一段（y=金币高度）      结论         R*选中");
         int worth = 0, trap = 0, unreach = 0;
         foreach (CoinInfo c in r.coins)
         {
@@ -824,37 +1146,107 @@ public static class LevelSolver
             foreach (Clearance cl in r.clearance)
                 if (cl.segName == c.segName && cl.clear <= r.ability.playerHeight + 0.05f)
                 { where += " ⚠玩家钻不进去"; break; }
-            sb.AppendLine(string.Format("    {0,-15} x{1,-6:0.#} {2,4} 元 {3}  {4,5:0.0}s  {5,-32} {6}",
-                c.name, c.x, c.value, detour, c.budget, where, verdict));
+            // R* 那一列：这枚币在"收益最大"的那条路线上（没算 R* 时打 ?，不假装）
+            string inBest = !r.bestComputed ? " ?"
+                          : (r.bestCoinIndexes.Contains(r.coins.IndexOf(c)) ? " ✅" : " —");
+            sb.AppendLine(string.Format("    {0,-15} x{1,-6:0.#} {2,4} 元 {3}  {4,5:0.0}s  {5,-32} {6,-11} {7}",
+                c.name, c.x, c.value, detour, c.budget, where, verdict, inBest));
         }
         sb.AppendLine(string.Format("    小结：值得捡 {0} 枚 / 不划算 {1} 枚 / 拿不到 {2} 枚", worth, trap, unreach));
 
-        // ---- 收益估算 ----
+        // ---- 收益估算（三行对照：冲刺 / 贪心全拿 R̄ / 最优解 R*）----
         if (r.goalReachable)
         {
             int barMax = LevelManager.BarMaxFor(r.parTime);
             float drain = LevelManager.DrainRateFor(r.parTime);
-            int rushPrice = Mathf.RoundToInt(barMax * Mathf.Clamp01(1f - drain * r.minTime / 100f));
+            int rushPrice = PriceAt(r.minTime, barMax, drain);
             int allPrice = 0, allTotal = 0;
             if (r.allCollectTime < float.MaxValue)
             {
-                allPrice = Mathf.RoundToInt(barMax * Mathf.Clamp01(1f - drain * r.allCollectTime / 100f));
+                allPrice = PriceAt(r.allCollectTime, barMax, drain);
                 allTotal = allPrice + r.coinTotal;
             }
 
             sb.AppendLine("【收益估算】");
             sb.AppendLine(string.Format("    冲刺（不捡币）  {0,5:0.0}s → 售价 {1,4} 元 +   0 = {2,4} 元",
                 r.minTime, rushPrice, rushPrice));
-            sb.AppendLine(string.Format("    全收集（估算）  {0,5:0.0}s → 售价 {1,4} 元 + {2,3} = {3,4} 元",
+            // R̄ 保留原来的"全收集"估算（不思考的玩家），但它把陷阱金币、甚至求解器拿不到的币
+            // 也算进了分子 ⇒ 只是对照，不是可行解 ⇒ 必须标出来。
+            sb.AppendLine(string.Format("    贪心全拿 R̄      {0,5:0.0}s → 售价 {1,4} 元 + {2,3} = {3,4} 元（含陷阱金币/拿不到的币，非最优）",
                 r.allCollectTime, allPrice, r.coinTotal, allTotal));
 
-            if (rushPrice > 0)
+            if (r.bestComputed)
             {
-                float gap = (allTotal - rushPrice) * 100f / rushPrice;
-                string tag = Mathf.Abs(gap) < 10f ? "⚠ 差 <10%：收集要素接近假选择"
-                           : (gap > 40f ? "⚠ 差 >40%：可能变成猜谜" : "✅ 落在 15%~35% 目标区间附近");
-                sb.AppendLine(string.Format("    差距 {0:+0.0;-0.0}%   {1}", gap, tag));
+                sb.AppendLine(string.Format("    最优解  R*      {0,5:0.0}s → 售价 {1,4} 元 + {2,3} = {3,4} 元",
+                    r.bestTime, r.bestPrice, r.bestCoinValue, r.bestScore));
+                if (rushPrice > 0)
+                {
+                    float gap = r.bestNewGapPercent;
+                    string tag = gap < 15f ? "⚠ 差 <15%：收集要素接近假选择"
+                               : (gap > 35f ? "⚠ 差 >35%：可能变成猜谜" : "✅ 落在 15%~35% 目标区间内");
+                    sb.AppendLine(string.Format("    收益差 = (R* ÷ 冲刺) − 1 = {0:+0.0;-0.0}%   {1}", gap, tag));
+                    sb.AppendLine(string.Format("    （旧口径「全收集」的差是 {0:+0.0;-0.0}%，改成 R* 后会变 —— 它剔除了捡了反而亏的币）",
+                        (allTotal - rushPrice) * 100f / rushPrice));
+                }
             }
+            else
+            {
+                sb.AppendLine(string.Format("    最优解  R*      未算：{0}", r.bestSkipReason));
+                if (rushPrice > 0)
+                    sb.AppendLine(string.Format("    收益差 = 未算（R* 没出来）；旧口径「全收集」的差是 {0:+0.0;-0.0}%",
+                        (allTotal - rushPrice) * 100f / rushPrice));
+            }
+        }
+
+        // ---- 最优解 R*：玩家最多能赚多少（掩码枚举的结果）----
+        if (r.goalReachable && r.bestComputed)
+        {
+            sb.AppendLine(string.Format("【最优解 R*】玩家最多能赚多少（金币 {0} 枚 → 掩码 {1} 个）",
+                r.coinCount, r.maskCount));
+            sb.AppendLine(string.Format("    耗时 {0:0.0}s → 售价 {1} 元 + {2} 元 = {3} 元",
+                r.bestTime, r.bestPrice, r.bestCoinValue, r.bestScore));
+
+            string names = "（一枚不捡）";
+            if (r.bestCoinIndexes.Count > 0)
+            {
+                List<string> nm = new List<string>();
+                foreach (int j in r.bestCoinIndexes)
+                    if (j >= 0 && j < r.coins.Count) nm.Add(r.coins[j].name);
+                names = string.Join(", ", nm.ToArray());
+            }
+            sb.AppendLine(string.Format("    捡了 {0} 枚：{1}", r.bestCoinCount, names));
+
+            if (r.bestPathDesc.Count > 0)
+                sb.AppendLine(string.Format("    路线（逐段合计 {0:0.0}s）：" + string.Join(" → ", r.bestPathDesc.ToArray()),
+                    r.bestRouteTime));
+
+            // ⚠ 线性判据（WorthIt）与真实结算不一致的地方，必须自己说出来：
+            //   WorthIt 比的是【单枚往返】的绕路代价；R* 比的是【联合】路线。
+            //   两种情况下线性判据说"不划算"的币捡了其实赚：① 顺路捎带（边际远小于单枚绕路）；
+            //   ② 耗时越过掉血下限（此后时间免费）。这条不是 bug，但会影响
+            //   "R* 只捡值得捡的币"这类验收口径 —— 所以把数字写出来，别让人猜。
+            sb.AppendLine(string.Format("    · 线性判据核对：R* 耗时 {0:0.0}s，掉血下限 {1:0.0}s（{2}）",
+                r.bestTime, r.floorTime, r.bestTime > r.floorTime ? "已越过 ⇒ 之后时间免费" : "未越过 ⇒ 时间一直值钱"));
+            if (r.bestCheatIndexes.Count == 0)
+            {
+                sb.AppendLine("      R* 选中的币全部也是线性判据认「值得捡」的（0 枚例外）");
+            }
+            else
+            {
+                sb.AppendLine(string.Format("      ⚠ 有 {0} 枚被线性判据标「不划算 ❌」但 R* 仍要捡：", r.bestCheatIndexes.Count));
+                for (int k = 0; k < r.bestCheatIndexes.Count; k++)
+                {
+                    int j = r.bestCheatIndexes[k];
+                    string nm = (j >= 0 && j < r.coins.Count) ? r.coins[j].name : ("#" + j);
+                    sb.AppendLine(string.Format("        {0}：单枚绕路 {1:0.0}s > 预算 {2:0.0}s，但在最优路线里边际只多 {3:0.0}s",
+                        nm, r.bestCheatSolo[k], (j >= 0 && j < r.coins.Count) ? r.coins[j].budget : 0f,
+                        r.bestCheatMarginal[k]));
+                }
+            }
+        }
+        else if (r.goalReachable && !r.bestComputed)
+        {
+            sb.AppendLine("【最优解 R*】未算：" + r.bestSkipReason);
         }
 
         // ---- 逃课 / 装饰障碍检测 ----
@@ -1171,6 +1563,44 @@ public static class LevelSolver
                 // 8/6.5 走 + 跳上 2.75（0.582）+ 掉下 2.75（0.432）+ 10/6.5 走 - 直线 18/6.5
                 float want = 8f / 6.5f + 0.58186f + 0.43230f + 10f / 6.5f - 18f / 6.5f;
                 WantNear(sb, ref pass, ref fail, "T6 绕路代价（回程按掉落计价）", r.coins[0].detour, want, 0.06f);
+            }
+        }
+
+        // ---- 用例 7：掩码枚举出来的最优收益 R*。1 枚顺路 + 1 枚绕 8 秒（预算只有 2 秒）----
+        //      为什么必须钉这一条：R* 是"玩家最多能赚多少"，它的口径差一点（例如按"恰好 mask"
+        //      而不是"⊇ mask"算），报告里的收益差就会系统性偏大，而报告看上去依然"很像那么回事"。
+        //      这里的答案能手算：barMax = 2×10×5 = 100，drain = (1−0.5)×100/10 = 5（元/秒·血条），
+        //      冲刺 1.23s → 94 元；顺路币 1.23s → 94+10 = 104；绕远币 9.23s → 54+10 = 64；
+        //      两枚都拿 9.23s → 54+20 = 74 ⇒ R* = 104（只捡顺路那枚）。
+        {
+            List<TerrainBlock> ts = new List<TerrainBlock>();
+            AddSlab(ts, "G", 0f, 40f, 0f, 1f);
+            LevelData d = NewTestLevel("T7_掩码最优", 10f);
+            d.terrain = ts.ToArray();
+            d.meta.playerX = 1f; d.meta.playerY = 0.5f;
+            d.objects = new LevelObject[] {
+                Pt(LevelObjectKind.Coin, "Near", 5f, 0.5f),     // 顺路，绕路 0
+                Pt(LevelObjectKind.Coin, "Far", 35f, 0.5f),      // 终点在 9，来回 52 格 = 8 秒 > 预算 2 秒
+                Pt(LevelObjectKind.Goal, "Goal", 9f, 0.5f) };
+            Report r = Solve(d, ab, null);
+
+            if (!r.bestComputed)
+            {
+                // 算不出来就是失败（不静默跳过，否则"少算一条"会被当成通过）
+                WantBool(sb, ref pass, ref fail, "T7 R* 算得出来（否则整条指标失效）", false, true);
+            }
+            else
+            {
+                WantBool(sb, ref pass, ref fail, "T7 R* 只捡划算的那 1 枚", r.bestCoinCount == 1, true);
+                WantBool(sb, ref pass, ref fail, "T7 R* 不含陷阱金币（Far）", r.bestCoinIndexes.Contains(1), false);
+
+                int barMax = LevelManager.BarMaxFor(r.parTime);
+                float drain = LevelManager.DrainRateFor(r.parTime);
+                int rushPrice = PriceAt(r.minTime, barMax, drain);
+                int greedyTotal = PriceAt(r.allCollectTime, barMax, drain) + r.coinTotal;
+                WantBool(sb, ref pass, ref fail, "T7 R* 收益 ≥ 冲刺收益", r.bestScore >= rushPrice, true);
+                WantBool(sb, ref pass, ref fail, "T7 R* 耗时 ≤ 贪心全拿耗时", r.bestTime <= r.allCollectTime + 0.01f, true);
+                WantBool(sb, ref pass, ref fail, "T7 R* 收益 ≥ 贪心全拿收益", r.bestScore >= greedyTotal, true);
             }
         }
 

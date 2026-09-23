@@ -70,6 +70,9 @@ public class LevelBuilder : MonoBehaviour
     public SlimePathFollow pathFollow;
     public CameraFollow cameraFollow;
     public Transform player;
+    [Tooltip("玩家物品栏：把本关的「发放哪些物品」（meta.itemGrants）写进去。\n" +
+             "留空 = 这一步跳过（物品栏保持它自己的默认值），不会报错")]
+    public PlayerInventory inventory;
 
     [Header("音效（拖 AudioClip；留空则该物件静音，不会报错）")]
     [Tooltip("金币被捡起时播放。生成金币时会挂一个 AudioSource 并把 clip 接到 Coin.pickupClip")]
@@ -235,6 +238,9 @@ public class LevelBuilder : MonoBehaviour
         }
 
         // 6) 引导石数量：数据说了算（各关数据现在都是 3，所以表现就是"每关开局三颗"）
+        //    ⚠ pathFollow 在关卡场景里是 Slime.prefab 的【实例组件】：这里只写内存里的值，
+        //      必须由编辑器侧的 LevelDataWindow.RebuildScene 登记 prefab 覆盖才会落盘
+        //      （06_问题.md #24 的 stoneCount 就是漏了这一步，表现是"改 JSON 不生效"）。
         if (pathFollow != null)
             pathFollow.stoneCount = Mathf.Max(0, data.meta.startStones);
 
@@ -245,7 +251,10 @@ public class LevelBuilder : MonoBehaviour
             levelManager.saveProgress = data.meta.saveProgress;
         }
 
-        // 8) 相机取景（这是关卡数据，不该留在场景模板里）        if (cameraFollow != null)
+        // 8) 相机取景（这是关卡数据，不该留在场景模板里）
+        //    ⚠ 空判据必须单独起一行：原来这行写成「注释……  if (cameraFollow != null)」，
+        //      if 被注释吞掉 ⇒ cameraFollow 为空时下面整块照样执行，第一行就 NRE（t35 的 F2）。
+        if (cameraFollow != null)
         {
             cameraFollow.useBounds = data.meta.useCameraBounds;
             cameraFollow.boundsMin = new Vector2(data.meta.camMinX, data.meta.camMinY);
@@ -256,7 +265,27 @@ public class LevelBuilder : MonoBehaviour
                 cam.orthographic = true;
                 cam.orthographicSize = data.meta.cameraSize;
             }
+
+            // 自动缩放：把史莱姆接成相机的【第二目标】—— 于是"两人分开时自动拉远"是【每一关】都有的普适机制，
+            // 不用逐场景手动拖。（CameraFollow 在场景里是普通对象、不是 prefab 实例 ⇒ 写它的字段不会遇到
+            // "prefab override 未记录被丢弃"的问题；这里赋的值是场景里那个史莱姆对象的 Transform。）
+            // 场景模板没拖史莱姆（理论上不存在）就保持原样 = 自动缩放关闭，行为与以前完全一样。
+            if (slime != null) cameraFollow.secondTarget = slime.transform;
         }
+
+        // 9) 本关发放哪些物品：数据说了算（索引 = 槽位序号 = ItemType 值）。
+        //    ⚠ 这里写进组件的值，LevelDataWindow.ExportScene 必须读回来（铁律：写进去的要读回来），
+        //      否则下一次导出会把它重置成默认值 = "四件全给"。
+        //    ⚠ 而且关卡场景里的 PlayerInventory 是 Player.prefab 的【实例组件】（stripped）：
+        //      它的落盘值 = prefab 资产值 + 该实例的 m_Modifications 覆盖表。代码直接改字段绕过了
+        //      Inspector 的 SerializedObject 通道，不进覆盖表 ⇒ SaveScene 时被静默丢弃
+        //      （这就是 06_问题.md #24 的 stoneCount 同款坑，也正是 #25 预言的"以后再加一条实例写入就会踩"）。
+        //      登记覆盖那一步必须调 PrefabUtility.RecordPrefabInstancePropertyModifications，
+        //      而本文件是【运行时脚本、不引用 UnityEditor】⇒ 放在编辑器侧的
+        //      LevelDataWindow.RebuildScene（那里已经按类型补好了 inventory 引用）。
+        //    用 Clone：别把数据里的数组和组件共享同一个引用（面板一改数据，场景组件跟着变）。
+        if (inventory != null && data.meta.itemGrants != null)
+            inventory.itemGrants = (bool[])data.meta.itemGrants.Clone();
 
         return root;
     }

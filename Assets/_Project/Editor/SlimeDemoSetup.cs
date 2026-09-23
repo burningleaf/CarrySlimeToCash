@@ -62,7 +62,7 @@ public static class SlimeDemoSetup
                      "Layer / Tag / 碰撞矩阵已配好，引用已自动连接。\n\n" +
                      "现在直接按 ▶ Play 就能玩：\n" +
                      "  A/D 移动，空格跳，E 抓取/放下，Q 投掷\n" +
-                     "  1/2/3 切换物品，2 号哨子按 E 切换史莱姆模式\n\n" +
+                     "  1/2/3/4 切换物品（4 = 跳跃云朵瓶：无限空中跳，但不能抱史莱姆），2 号哨子按 E 切换史莱姆模式\n\n" +
                      "详细信息看 Console 窗口（Window → General → Console）。";
         Debug.Log("========== 呆呆史莱姆：一键搭建结束 ==========");
         if (!Application.isBatchMode) EditorUtility.DisplayDialog("呆呆史莱姆", msg, "好");
@@ -1953,6 +1953,8 @@ public static class SlimeDemoSetup
         Sprite iconWhistle = CreateColorSprite("Icon_Whistle", new Color(1f, 0.85f, 0.25f));
         Sprite iconStone = CreateColorSprite("Icon_GuideStone", new Color(0.30f, 0.95f, 0.95f));
         Sprite iconSlot4 = CreateColorSprite("Icon_Slot4", new Color(0.65f, 0.45f, 0.95f));
+        // 跳跃云朵瓶（第 4 格）：像素画由 Tools/美术/生成像素素材 产出同名 PNG；这里只做"没有图时的浅蓝占位"
+        Sprite iconCloudBottle = CreateColorSprite("Icon_CloudBottle", new Color(0.77f, 0.91f, 0.96f));
 
         // ---------- Canvas ----------
         GameObject canvasGo = FindOrCreateRoot(scene, "UICanvas");
@@ -2058,6 +2060,7 @@ public static class SlimeDemoSetup
         invUi.whistleIcon = iconWhistle;
         invUi.guideStoneIcon = iconStone;
         invUi.slot4Icon = iconSlot4;
+        invUi.cloudBottleIcon = iconCloudBottle;   // 接了它就是云朵瓶的正式图标；没接时 InventoryUI 自动回退 slot4Icon
         invUi.lockedOverlay = lockedOverlay.gameObject;
         EditorUtility.SetDirty(invUi);
 

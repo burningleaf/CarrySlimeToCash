@@ -36,7 +36,10 @@ public class InventoryUI : MonoBehaviour
     [Tooltip("引导石 GuideStone 的图标")]
     public Sprite guideStoneIcon;
 
-    [Tooltip("预留槽 Slot4 的图标")]
+    [Tooltip("跳跃云朵瓶 CloudBottle（第 4 格）的图标。留空时回退用 slot4Icon（旧的占位紫块），所以没换图也不会显示空白")]
+    public Sprite cloudBottleIcon;
+
+    [Tooltip("跳跃云朵瓶（第 4 格）的旧占位图标：cloudBottleIcon 没配时用它兜底")]
     public Sprite slot4Icon;
 
     [Header("槽位边框颜色")]
@@ -53,8 +56,13 @@ public class InventoryUI : MonoBehaviour
     [Tooltip("携带史莱姆（IsSwitchLocked = true）时显示的遮罩物体；可空")]
     public GameObject lockedOverlay;
 
-    [Header("物品中文名（长度 4，索引对应 ItemType：None/Whistle/GuideStone/Slot4）")]
-    public string[] itemDisplayNames = new string[] { "空手", "哨子", "引导石", "预留" };
+    [Header("物品中文名（长度 4，索引对应 ItemType：None/Whistle/GuideStone/CloudBottle）")]
+    [Tooltip("⚠ 场景里这个数组是【序列化】的：改这里的默认值对已生成的老场景无效（第 4 格至今写着「预留」）。\n" +
+             "所以第 4 格的名字不依赖这个数组，走下面的 cloudBottleDisplayName。")]
+    public string[] itemDisplayNames = new string[] { "空手", "哨子", "引导石", "跳跃云朵瓶" };
+
+    [Tooltip("第 4 格「跳跃云朵瓶」的中文名。它单独一个字段，就为了绕开老场景里 itemDisplayNames[3] = 「预留」的序列化旧值")]
+    public string cloudBottleDisplayName = "跳跃云朵瓶";
 
     private int _lastViewCount = -1;
     private int _lastSlot = -1;
@@ -219,8 +227,9 @@ public class InventoryUI : MonoBehaviour
                 return whistleIcon;
             case ItemType.GuideStone:
                 return guideStoneIcon;
-            case ItemType.Slot4:
-                return slot4Icon;
+            case ItemType.CloudBottle:
+                // 新图标还没生成/还没拖时，回退到旧的占位图，至少不显示空白
+                return cloudBottleIcon != null ? cloudBottleIcon : slot4Icon;
             case ItemType.None:
                 return noneIcon;
             default:
@@ -230,6 +239,12 @@ public class InventoryUI : MonoBehaviour
 
     private string GetDisplayName(ItemType type)
     {
+        // 云朵瓶的名字单独给（老场景里 itemDisplayNames[3] 是序列化的旧占位名「预留」）
+        if (type == ItemType.CloudBottle && !string.IsNullOrEmpty(cloudBottleDisplayName))
+        {
+            return cloudBottleDisplayName;
+        }
+
         if (itemDisplayNames == null)
         {
             return null;

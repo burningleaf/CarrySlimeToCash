@@ -12,6 +12,12 @@
         ],
         "startStones": 3,
         "coinValue": 10,
+        "itemGrants": [
+            true,
+            true,
+            true,
+            true
+        ],
         "levelIndex": 3,
         "saveProgress": true,
         "useCameraBounds": true,
@@ -592,7 +598,7 @@
             "sizeY": 0.8999999761581421,
             "p": [
                 2.5,
-                0.75,
+                0.30000001192092898,
                 0.5,
                 1.0,
                 15.0,

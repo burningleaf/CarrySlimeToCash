@@ -11,6 +11,10 @@ using UnityEngine;
 ///         导出器读的就是 baseSize —— 不能读 Camera.orthographicSize：导出那一刻相机可能正在拉远，
 ///         读当下值会把"拉远后的尺寸"永久写进 JSON，而 META 比对行含 cameraSize（LevelData.cs:388-391），
 ///         ⓪-3 往返就会报「不一致 ❌」。
+///       · 拉远【上限】= min(baseSize × maxZoomOutMultiplier, 整关一屏所需尺寸)，取较小者。
+///         后半条只在关卡启用相机边界（useBounds）时才有意义 —— 越过"整关一屏"之后多出来的视野
+///         全是世界外空白（Level3 实测拉到 4.07× 时天空占 54%）。useBounds = false 的关卡没有"整关"
+///         的定义 ⇒ 只用 baseSize × maxZoomOutMultiplier（原行为不变）。
 /// </summary>
 public class CameraFollow : MonoBehaviour
 {
@@ -39,7 +43,8 @@ public class CameraFollow : MonoBehaviour
     [Tooltip("关卡【基准】视野大小（= 关卡数据 meta.cameraSize）。自动拉远只在这个基础上放大，永远不会改它。" +
              "填 0 或负数 = 启动时从相机当前尺寸取一次")]
     public float baseSize = 6.5f;
-    [Tooltip("拉远上限倍数（相对 baseSize）。1 = 不放大；6 = 最多拉到 6 倍大（base 6.5 → 39），到顶就不再拉远")]
+    [Tooltip("拉远上限倍数（相对 baseSize）。1 = 不放大；6 = 最多拉到 6 倍大（base 6.5 → 39），到顶就不再拉远。" +
+             "⚠ 这是【倍数】上限：启用相机边界的关卡还会再叠一条「整关一屏」上限，两者取较小者（见 ComputeDesiredSize）")]
     public float maxZoomOutMultiplier = 6f;
     [Tooltip("把两人框进视野时四周多留的边距（世界单位）。也用来吸收相机跟随的滞后")]
     public float framingMargin = 1f;
@@ -157,7 +162,9 @@ public class CameraFollow : MonoBehaviour
     /// 算出"两人都留在视野里"需要的视野大小（半高，世界单位）。
     /// 相机中心 ≈ target + offset（水平钉在目标上、垂直钉在死区内），
     /// 所以要求 = 从相机中心到两人里更远的那个的距离 + 留白；
-    /// 再夹到 [baseSize, baseSize × maxZoomOutMultiplier] —— 分离为 0 时正好是 baseSize。
+    /// 再夹到 [baseSize, 上限] —— 分离为 0 时正好是 baseSize。
+    /// 上限 = min(baseSize × maxZoomOutMultiplier, 整关一屏所需尺寸)：启用相机边界时取较小者，
+    /// 否则只用倍数上限（见 WholeLevelSizeForOneScreen 的注释）。
     /// </summary>
     float ComputeDesiredSize()
     {
@@ -177,8 +184,33 @@ public class CameraFollow : MonoBehaviour
         float sizeFromWidth = aspect > 0f ? needHalfWidth / aspect : needHalfWidth;
 
         float minSize = baseSize;
-        float maxSize = Mathf.Max(minSize, minSize * maxZoomOutMultiplier);   // 上限 = base × 倍数（6.5 → 39）
+        float maxSize = Mathf.Max(minSize, minSize * maxZoomOutMultiplier);   // 倍数上限 = base × 倍数（6.5 → 39）
+
+        // 再叠一条"整关一屏"上限（取较小者）：拉远是为了把两人都框进来，不是把整关缩得很小；
+        // 越过"整关一屏"之后，多出来的视野全是世界外空白（Level3 实测 4.07× 时天空占 54%）。
+        // ⚠ 只在关卡启用了相机边界时才有"整关"可言：useBounds = false ⇒ 不套这条上限（原行为不变）。
+        // ⚠ 这条上限可能比 baseSize 还小（关卡本来就不足一屏）⇒ 用 Max 兜住，保证 maxSize >= minSize。
+        if (useBounds)
+        {
+            float wholeLevelSize = WholeLevelSizeForOneScreen(aspect);
+            maxSize = Mathf.Max(minSize, Mathf.Min(maxSize, wholeLevelSize));
+        }
+
         return Mathf.Clamp(Mathf.Max(needHalfHeight, sizeFromWidth), minSize, maxSize);
+    }
+
+    /// <summary>
+    /// "整关一屏"所需的视野大小（半高，世界单位）：让整个相机边界盒正好装进一屏。
+    ///   = max( 盒高 / 2 , 盒宽 / (2 × aspect) )
+    /// 两个来源都不写死：盒子取 public 字段 boundsMin / boundsMax（LevelBuilder 按 meta 的
+    /// camMinX/camMinY/camMaxX/camMaxY 写进来），aspect 取相机实际值（ComputeDesiredSize 里的 _camera.aspect）。
+    /// 意义：视野到这个尺寸时，边界盒（以及盒里的玩家与史莱姆）必然整屏可见；再拉远只会多出世界外空白。
+    /// </summary>
+    float WholeLevelSizeForOneScreen(float aspect)
+    {
+        float halfBoxHeight = (boundsMax.y - boundsMin.y) * 0.5f;
+        float halfBoxWidth = aspect > 0f ? (boundsMax.x - boundsMin.x) / (2f * aspect) : 0f;
+        return Mathf.Max(halfBoxHeight, halfBoxWidth);
     }
 
     /// <summary>把相机位置夹在关卡边界内（保证不会拍到地图外的空白）。</summary>

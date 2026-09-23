@@ -42,8 +42,10 @@ public static class MuralGenerator
     /// <summary>画布边长（正方形）。</summary>
     public static int muralSize = 64;
 
-    /// <summary>导入用的 Pixels Per Unit。</summary>
-    public static float muralPixelsPerUnit = 32f;
+    /// <summary>导入用的 Pixels Per Unit。⚠ 磁盘上现有 20 张 mural 的 .meta 实测就是 40
+    /// （历史遗留：这一栏曾写成 32，与 .meta 不符）。重新生成会把导入设置按本值强写回去，
+    /// 所以这里必须是 40 —— 否则重画一次就会把已经画好的 15 张放大 1.25 倍并上下溢出牌面。</summary>
+    public static float muralPixelsPerUnit = 40f;
 
     /// <summary>基础线宽（px）。规范要求 ≥3。</summary>
     public static int muralLineWidth = 3;
@@ -256,20 +258,30 @@ public static class MuralGenerator
         List<MuralDef> list = new List<MuralDef>();
 
         MuralAdd(list, "H1", "跟随：史莱姆 + 箭头 → 小孩", PaintFollow);
-        MuralAdd(list, "H2", "举起：小孩把史莱姆举过头顶 + E 徽章", PaintCarryOverhead);
+        // ⚠ 说明串必须与画法一致（它是生成日志里唯一给人看的证据）：
+        //   动作键按 PlayerGrab.cs:97-159 的实际分工写 —— 空手 E 举/放、Q 投；哨子 E 召回、Q 冲刺；
+        //   引导石 E 放路点、Q 撤路点。物品键帽 = 新增的 1/2/3 角标。
+        MuralAdd(list, "H2", "举起：小孩把史莱姆举过头顶 + 1 键帽（空手）+ E 键帽", PaintCarryOverhead);
         MuralAdd(list, "H3", "水：三条波浪 + 水滴 + 感叹号", PaintWater);
-        MuralAdd(list, "H4", "放下：小孩把史莱姆放到地上 + E 徽章", PaintPlaceDown);
-        MuralAdd(list, "H5", "跳：向上粗箭头 + 起跳的小孩 + 地面线", PaintJump);
-        MuralAdd(list, "H6", "投掷：抛物动作 + 抛物线虚线 + 史莱姆 + Q 徽章", PaintThrow);
-        MuralAdd(list, "H7", "待命：史莱姆 + 钉住符号 + ×2（两个小方块）", PaintStay);
-        MuralAdd(list, "H8", "召回：史莱姆 + 一串箭头指向小孩 + Q 徽章", PaintRecall);
-        MuralAdd(list, "H9", "放引导石：菱形石头 + 虚线路径 + 三个点 + E 徽章", PaintWaypointSet);
-        MuralAdd(list, "H10", "撤石：虚线路径被斜杠划掉 + Q 徽章", PaintWaypointClear);
+        MuralAdd(list, "H4", "放下：小孩把史莱姆放到地上 + 1 键帽（空手）+ E 键帽", PaintPlaceDown);
+        MuralAdd(list, "H5", "跳：向上粗箭头 + 起跳的小孩 + 地面线 + 空格键帽", PaintJump);
+        MuralAdd(list, "H6", "投掷：抛物动作 + 抛物线虚线 + 史莱姆 + 1 键帽（空手）+ Q 键帽", PaintThrow);
+        MuralAdd(list, "H7", "待命：史莱姆 + 钉住符号 + 2 键帽（哨子）+ 两个 E 键帽串联（第二个加圈）", PaintStay);
+        MuralAdd(list, "H8", "召回：史莱姆 + 一串箭头指向小孩 + 2 键帽（哨子）+ E 键帽", PaintRecall);
+        MuralAdd(list, "H9", "放引导石：菱形石头 + 虚线路径 + 三个点 + 3 键帽（引导石）+ E 键帽", PaintWaypointSet);
+        MuralAdd(list, "H10", "撤石：虚线路径被斜杠划掉 + 3 键帽（引导石）+ Q 键帽", PaintWaypointClear);
         MuralAdd(list, "H11", "金币：史莱姆 + 向下箭头 → 金币", PaintCoin);
         MuralAdd(list, "H12", "回血：心 + 加号", PaintHeal);
         MuralAdd(list, "H13", "收购站：摊位 + 屋顶 + 金币", PaintShop);
-        MuralAdd(list, "R1", "复习·举起（H2 简化版）", PaintCarrySimple);
-        MuralAdd(list, "R2", "复习·投掷（H6 简化版）", PaintThrowSimple);
+        MuralAdd(list, "R1", "复习·举起（H2 简化版：1 键帽 + E 键帽）", PaintCarrySimple);
+        MuralAdd(list, "R2", "复习·投掷（H6 简化版：1 键帽 + Q 键帽）", PaintThrowSimple);
+
+        // ⚠ 下面 5 条必须【追加在末尾】：Level0.json 的 murals 数组顺序 = 本列表顺序（下标即 sprIndex）。
+        MuralAdd(list, "N1", "物品栏 1：空手（手掌 + 1 键帽 + 底槽）", PaintItemBar1);
+        MuralAdd(list, "N2", "物品栏 2：哨子（哨子 + 声波 + 2 键帽 + 底槽）", PaintItemBar2);
+        MuralAdd(list, "N3", "物品栏 3：引导石（菱形 + 3 键帽 + 底槽）", PaintItemBar3);
+        MuralAdd(list, "N4", "物品栏 4：预留（方框 + ? + 4 键帽 + 底槽，方案 4-A）", PaintItemBar4);
+        MuralAdd(list, "N5", "换物品前先放下（1 键帽 + 开锁 + 空手小孩 + 落地史莱姆 + E 键帽）", PaintItemBar5);
 
         return list;
     }
@@ -307,6 +319,7 @@ public static class MuralGenerator
         c.Limb(new Vector2(20f, 32f), new Vector2(29f, 33f), new Vector2(30f, 46f), muralLineWidth, k);
         c.Slime(20f, 47f, 9f, k);                                         // 举在头顶的史莱姆
         c.KeyBadge(52f, 11f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);
+        c.KeyBadge(14f, 14f, muralBadgeRadius, MuralGlyph1, muralBadgeGlyphPixel, k);   // 物品：1 空手
     }
 
     /// <summary>R1 复习·举起：和 H2 同图，略简（无地面线、史莱姆不带眼睛），功能徽章保留。</summary>
@@ -322,6 +335,7 @@ public static class MuralGenerator
         c.Limb(new Vector2(20f, 32f), new Vector2(29f, 33f), new Vector2(30f, 46f), muralLineWidth, k);
         c.Slime(20f, 47f, 9f, k, false);
         c.KeyBadge(52f, 11f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);
+        c.KeyBadge(14f, 14f, muralBadgeRadius, MuralGlyph1, muralBadgeGlyphPixel, k);   // 物品：1 空手（与 H2 一致，复习才成立）
     }
 
     /// <summary>H3 水：三条波浪线 + 一个水滴（水滴里抠出感叹号）。</summary>
@@ -357,6 +371,7 @@ public static class MuralGenerator
         c.Arrow(31f, 30f, 31f, 21f, muralLineWidth, 6f, k);               // 向下的小箭头 = 放到地上
         c.Slime(31f, 9f, 8f, k);                                          // 放到地上的史莱姆
         c.KeyBadge(52f, 11f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);
+        c.KeyBadge(14f, 14f, muralBadgeRadius, MuralGlyph1, muralBadgeGlyphPixel, k);   // 物品：1 空手
     }
 
     /// <summary>H5 跳：向上的粗箭头 + 正在起跳的小孩 + 地面横线。</summary>
@@ -373,6 +388,8 @@ public static class MuralGenerator
         c.Limb(new Vector2(40f, 26f), new Vector2(45f, 24f), new Vector2(46f, 17f), muralLineWidth, k);
         c.Limb(new Vector2(40f, 37f), new Vector2(33f, 40f), new Vector2(31f, 48f), muralLineWidth, k);
         c.Limb(new Vector2(40f, 37f), new Vector2(47f, 40f), new Vector2(49f, 48f), muralLineWidth, k);
+
+        MuralKeyCapSpace(c, 47f, 11f, k);                                 // 动作：空格（跳跃）—— 本关唯一玩家无从得知的键
     }
 
     /// <summary>H6 投掷（按 Q）：小孩抛掷 + 抛物线虚线 + 末端一个史莱姆 + 圆形 Q 徽章。</summary>
@@ -389,6 +406,7 @@ public static class MuralGenerator
                       muralLineWidth, 3.2f, 2.2f, k);
         c.Slime(56f, 26f, 6f, k);                                         // 抛物线末端的史莱姆
         c.KeyBadge(52f, 11f, muralBadgeRadius, MuralGlyphQ, muralBadgeGlyphPixel, k);
+        c.KeyBadge(14f, 14f, muralBadgeRadius, MuralGlyph1, muralBadgeGlyphPixel, k);   // 物品：1 空手
     }
 
     /// <summary>R2 复习·投掷：和 H6 同图，略简（史莱姆不带眼睛），功能徽章保留。</summary>
@@ -405,9 +423,10 @@ public static class MuralGenerator
                       muralLineWidth, 3.6f, 2.6f, k);
         c.Slime(56f, 26f, 6f, k, false);
         c.KeyBadge(52f, 11f, muralBadgeRadius, MuralGlyphQ, muralBadgeGlyphPixel, k);
+        c.KeyBadge(14f, 14f, muralBadgeRadius, MuralGlyph1, muralBadgeGlyphPixel, k);   // 物品：1 空手（与 H6 一致，复习才成立）
     }
 
-    /// <summary>H7 待命（连按 2 次 E）：史莱姆 + 脚下"钉住"符号 + 上方 ×2（两个叠在一起的小方块）。</summary>
+    /// <summary>H7 待命（哨子 2 + 连按 2 次 E）：史莱姆 + 脚下"钉住"符号 + 上方两个 E 键帽串联（第二个加圈）。</summary>
     static void PaintStay(MuralCanvas c)
     {
         Color32 k = muralInkColor;
@@ -421,11 +440,20 @@ public static class MuralGenerator
         c.Box(20, 4, 21, 9, k);
         c.Box(25, 4, 26, 9, k);
 
-        c.BoxOutline(34, 36, 46, 48, muralLineWidth, k);                  // ×2：两个叠在一起的小方块
-        c.BoxOutline(41, 45, 53, 57, muralLineWidth, k);
+        // ×2：两个 E 键帽用箭头串起来 + 第二个加圈 = "同一件事做两次"
+        // （原来的"两个叠放小方块"读不出"按两次"，见 _workflow/14_教学关壁画规格.md §2.4-1）
+        c.KeyBadge(27f, 44f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);
+        c.Arrow(32f, 60f, 44f, 60f, muralLineWidth, 5f, k);
+        c.KeyBadge(49f, 44f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);
+        c.Ring(49f, 44f, muralBadgeRadius + 2f, muralLineWidth, k);       // 圈 = 第二次
+
+        c.KeyBadge(14f, 14f, muralBadgeRadius, MuralGlyph2, muralBadgeGlyphPixel, k);   // 物品：2 哨子
+        c.KeyBadge(52f, 11f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);   // 动作：E
     }
 
-    /// <summary>H8 召回（按 Q）：史莱姆 + 一串箭头指向小孩 + 圆形 Q 徽章。</summary>
+    /// <summary>H8 召回（**2 哨子 + E**，不是 Q）：史莱姆 + 一串箭头指向小孩 + 物品/动作键帽。
+    /// ⚠ 这里原来标的是 `Q` —— 那是历史错误：`PlayerGrab.cs:133-138` 写明 `Q` + 哨子 = **冲刺**，
+    /// 而"召回" = `2` + `E`（`PlayerGrab.cs:106-109` → `ToggleMode`）。按错的键玩会得到"史莱姆冲刺"，与牌面意思相反。</summary>
     static void PaintRecall(MuralCanvas c)
     {
         Color32 k = muralInkColor;
@@ -441,7 +469,8 @@ public static class MuralGenerator
                  new Vector2(46f, 24f), new Vector2(54f, 24f),
                  muralLineWidth, k);
 
-        c.KeyBadge(52f, 11f, muralBadgeRadius, MuralGlyphQ, muralBadgeGlyphPixel, k);
+        c.KeyBadge(52f, 11f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);   // 动作：E（召回）
+        c.KeyBadge(14f, 14f, muralBadgeRadius, MuralGlyph2, muralBadgeGlyphPixel, k);   // 物品：2 哨子
     }
 
     /// <summary>H9 放引导石（3 选石，E 放置）：菱形石头 + 虚线路径 + 三个小点 + 圆形 E 徽章。</summary>
@@ -458,6 +487,7 @@ public static class MuralGenerator
         c.DashedStroke(30f, 32f, 39f, 32f, muralLineWidth, 3.2f, 2.2f, k);// 虚线路径（石头右边）
 
         c.KeyBadge(52f, 11f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);
+        c.KeyBadge(14f, 14f, muralBadgeRadius, MuralGlyph3, muralBadgeGlyphPixel, k);   // 物品：3 引导石
     }
 
     /// <summary>H10 撤石（按 Q）：虚线路径被一条斜杠划掉 + 圆形 Q 徽章。</summary>
@@ -468,6 +498,7 @@ public static class MuralGenerator
         c.DashedStroke(4f, 36f, 39f, 36f, muralLineWidth, 3.2f, 2.2f, k);
         c.Stroke(8f, 22f, 36f, 50f, 4f, k);                               // 大斜杠
         c.KeyBadge(52f, 11f, muralBadgeRadius, MuralGlyphQ, muralBadgeGlyphPixel, k);
+        c.KeyBadge(14f, 14f, muralBadgeRadius, MuralGlyph3, muralBadgeGlyphPixel, k);   // 物品：3 引导石
     }
 
     /// <summary>H11 金币：史莱姆 + 向下的箭头指着金币。</summary>
@@ -505,6 +536,95 @@ public static class MuralGenerator
     }
 
     // =================================================================================
+    //  五之二、物品栏 5 张（N1~N5）：四张单格拼成一条 + 一张"换物品前先放下"
+    //  出处：_workflow/14_教学关壁画规格.md §3（方案 B）。⚠ 顺序必须与 Level0.json 的
+    //  murals 数组逐条一致（H1..H13, R1, R2, N1..N5 = 20 条）。
+    // =================================================================================
+
+    /// <summary>N1 物品栏第 1 格 = 空手：张开的手掌 + 左下 `1` 键帽 + 底槽。</summary>
+    static void PaintItemBar1(MuralCanvas c)
+    {
+        Color32 k = muralInkColor;
+
+        c.Box(0, 2, 63, 4, k);                                            // 底槽（四张画在同一 y，拼起来连成一条）
+        c.KeyBadge(16f, 16f, muralBadgeRadius, MuralGlyph1, muralBadgeGlyphPixel, k);
+
+        c.Disc(44f, 26f, 11f, k);                                         // 掌根
+        c.Stroke(34f, 30f, 32f, 46f, muralLineWidth, k);                  // 四指
+        c.Stroke(40f, 30f, 39f, 48f, muralLineWidth, k);
+        c.Stroke(46f, 30f, 47f, 48f, muralLineWidth, k);
+        c.Stroke(52f, 30f, 55f, 45f, muralLineWidth, k);
+        c.Stroke(35f, 23f, 24f, 29f, muralLineWidth, k);                  // 拇指
+    }
+
+    /// <summary>N2 物品栏第 2 格 = 哨子：圆头 + 管身 + 声波 + 左下 `2` 键帽 + 底槽。</summary>
+    static void PaintItemBar2(MuralCanvas c)
+    {
+        Color32 k = muralInkColor;
+
+        c.Box(0, 2, 63, 4, k);                                            // 底槽
+        c.KeyBadge(16f, 16f, muralBadgeRadius, MuralGlyph2, muralBadgeGlyphPixel, k);
+
+        c.Ring(32f, 36f, 12f, muralLineWidth, k);                         // 挂绳（被主体挡掉一半，可接受）
+        c.Disc(36f, 32f, 11f, k);                                         // 圆头
+        c.Box(36, 26, 58, 36, k);                                         // 管身
+        c.ClearBox(54, 28, 58, 34);                                       // 抠出吹嘴
+        c.ClearDisc(36f, 44f, 3f);                                        // 气孔
+
+        c.Stroke(50f, 44f, 58f, 50f, muralLineWidth, k);                  // 声波两条
+        c.Stroke(50f, 38f, 58f, 36f, muralLineWidth, k);
+    }
+
+    /// <summary>N3 物品栏第 3 格 = 引导石：菱形石头（与 H9 同一形状）+ 十字光纹 + 左下 `3` 键帽 + 底槽。</summary>
+    static void PaintItemBar3(MuralCanvas c)
+    {
+        Color32 k = muralInkColor;
+
+        c.Box(0, 2, 63, 4, k);                                            // 底槽
+        c.KeyBadge(16f, 16f, muralBadgeRadius, MuralGlyph3, muralBadgeGlyphPixel, k);
+
+        c.Diamond(40f, 32f, 9f, 11f, k);                                  // 同一物品必须同一形状：H9 用的就是菱形
+        c.ClearBox(39, 29, 41, 35);                                       // 十字光纹（抠出）
+        c.ClearBox(36, 31, 44, 33);
+    }
+
+    /// <summary>N4 物品栏第 4 格 = 预留（方案 4-A）：空心方框 + 抠出的 `?`（与 HUD 的 Icon_Slot4 同形）+ 左下 `4` 键帽 + 底槽。
+    /// ⚠ 第 4 格内容一旦定了（例如"跳跃云朵瓶"），**只换这一个函数体**，坐标/JSON/接线都不用动。</summary>
+    static void PaintItemBar4(MuralCanvas c)
+    {
+        Color32 k = muralInkColor;
+
+        c.Box(0, 2, 63, 4, k);                                            // 底槽
+        c.KeyBadge(16f, 16f, muralBadgeRadius, MuralGlyph4, muralBadgeGlyphPixel, k);
+
+        c.BoxOutline(30, 20, 58, 48, muralLineWidth, k);                  // 空心方框
+        MuralCarveGlyph(c, 44f, 34f, MuralGlyphQuestion, muralBadgeGlyphPixel);   // 抠出 `?`
+    }
+
+    /// <summary>N5 换物品前先放下（补上现在完全没人教的强制前置：`allowSwitchWhileCarrying = false`）。
+    /// 与 H4 的区别：这里**没有地面线**、**有 `1` 键帽**、中间多一个"开锁"符号 ⇒ 讲的是"为了换物品而放下"。</summary>
+    static void PaintItemBar5(MuralCanvas c)
+    {
+        Color32 k = muralInkColor;
+
+        c.KeyBadge(14f, 14f, muralBadgeRadius, MuralGlyph1, muralBadgeGlyphPixel, k);   // 先切 `1` 空手
+        c.KeyBadge(52f, 11f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);   // 再按 `E` 放下
+
+        c.Slime(20f, 12f, 8f, k);                                         // 中央左：落地的史莱姆
+
+        c.Disc(42f, 34f, 4.5f, k);                                        // 中央右：空手小孩
+        c.Stroke(42f, 29f, 42f, 18f, muralLineWidth, k);                  // 脊柱
+        c.Stroke(42f, 18f, 39f, 10f, muralLineWidth, k);                  // 两条腿
+        c.Stroke(42f, 18f, 45f, 10f, muralLineWidth, k);
+        c.Stroke(42f, 30f, 38f, 20f, muralLineWidth, k);                  // 两臂自然下垂（不是"举着"）
+        c.Stroke(42f, 30f, 46f, 20f, muralLineWidth, k);
+
+        c.Ring(31f, 26f, 7f, muralLineWidth, k);                          // 开锁 = 解除限制
+        c.ClearBox(31, 32, 33, 34);                                       // 缺口
+        c.Stroke(25f, 26f, 37f, 26f, muralLineWidth, k);                  // 锁梁
+    }
+
+    // =================================================================================
     //  六、徽章点阵（'#' = 字母本体 → 用透明抠掉）
     // =================================================================================
 
@@ -532,6 +652,91 @@ public static class MuralGenerator
         ".##.#",
     };
 
+    /// <summary>数字 1（5×7 点阵）：物品栏第 1 格 = 空手。</summary>
+    static readonly string[] MuralGlyph1 =
+    {
+        "..#..",
+        ".##..",
+        "..#..",
+        "..#..",
+        "..#..",
+        "..#..",
+        ".###.",
+    };
+
+    /// <summary>数字 2：物品栏第 2 格 = 哨子。</summary>
+    static readonly string[] MuralGlyph2 =
+    {
+        ".###.",
+        "#...#",
+        "....#",
+        "..##.",
+        ".#...",
+        "#....",
+        "#####",
+    };
+
+    /// <summary>数字 3：物品栏第 3 格 = 引导石。</summary>
+    static readonly string[] MuralGlyph3 =
+    {
+        ".###.",
+        "#...#",
+        "....#",
+        "..##.",
+        "....#",
+        "#...#",
+        ".###.",
+    };
+
+    /// <summary>数字 4：物品栏第 4 格（预留位）。</summary>
+    static readonly string[] MuralGlyph4 =
+    {
+        "...#.",
+        "..##.",
+        ".#.#.",
+        "#..#.",
+        "#####",
+        "...#.",
+        "...#.",
+    };
+
+    /// <summary>问号：第 4 格"预留"的符号（与 HUD 的 Icon_Slot4 同形）。</summary>
+    static readonly string[] MuralGlyphQuestion =
+    {
+        ".###.",
+        "#...#",
+        "....#",
+        "..##.",
+        "..#..",
+        ".....",
+        "..#..",
+    };
+
+    /// <summary>宽键帽的半宽/半高（px）。放 (47,11) 时 x ∈ [33,61]、y ∈ [4,18]，都在 64 画布内。</summary>
+    public static int muralSpaceCapHalfW = 14;
+    public static int muralSpaceCapHalfH = 7;
+
+    /// <summary>
+    /// 宽键帽（空格这类没有字母的键）：实心长条 + 削两个上角 + 抠出一个"⌣"。
+    /// 画法与 <see cref="MuralCanvas.KeyBadge"/> 同一套（实心 + 透明抠出），只是形状是长条而不是圆。
+    /// </summary>
+    static void MuralKeyCapSpace(MuralCanvas c, float cx, float cy, Color32 k)
+    {
+        int hw = Mathf.Max(1, muralSpaceCapHalfW);
+        int hh = Mathf.Max(1, muralSpaceCapHalfH);
+        int ix = Mathf.RoundToInt(cx), iy = Mathf.RoundToInt(cy);
+
+        c.Box(ix - hw, iy - hh, ix + hw, iy + hh, k);
+        c.Clear(ix - hw, iy + hh);                       // 削两个上角，看起来像圆角键帽
+        c.Clear(ix + hw, iy + hh);
+
+        for (int i = -9; i <= 9; i++)                    // "⌣"：中间低、两端高
+        {
+            int dy = -(i * i) / 18;
+            c.ClearBox(ix + i, iy + dy - 1, ix + i, iy + dy + 1);
+        }
+    }
+
     // =================================================================================
     //  七、小工具
     // =================================================================================
@@ -549,6 +754,41 @@ public static class MuralGenerator
             pts[i] = p;
         }
         return pts;
+    }
+
+    /// <summary>
+    /// 把一个 5×7 点阵**抠**在 (cx,cy) 居中的位置（排版算法与 <see cref="MuralCanvas.KeyBadge"/> 逐字一致，
+    /// 只是没有圆底、也不写墨色 ⇒ 用在"方框里抠出一个 `?`"这种场合）。
+    /// </summary>
+    static void MuralCarveGlyph(MuralCanvas c, float cx, float cy, string[] glyph, int pixel)
+    {
+        if (glyph == null || glyph.Length == 0) return;
+
+        int gh = glyph.Length;
+        int gw = 0;
+        for (int i = 0; i < gh; i++)
+        {
+            int len = glyph[i] == null ? 0 : glyph[i].Length;
+            if (len > gw) gw = len;
+        }
+        if (gw == 0) return;
+        if (pixel < 1) pixel = 1;
+
+        float left = cx - (gw * pixel - 1) * 0.5f;
+        float bottom = cy - (gh * pixel - 1) * 0.5f;
+
+        for (int row = 0; row < gh; row++)
+        {
+            string line = glyph[row];
+            if (line == null) continue;
+            for (int col = 0; col < line.Length; col++)
+            {
+                if (line[col] != '#') continue;
+                int px0 = Mathf.RoundToInt(left + col * pixel);
+                int py0 = Mathf.RoundToInt(bottom + (gh - 1 - row) * pixel);   // 第 0 行在顶部
+                c.ClearBox(px0, py0, px0 + pixel - 1, py0 + pixel - 1);
+            }
+        }
     }
 
     /// <summary>心形（两个圆 + 一个倒三角）。</summary>

@@ -453,6 +453,14 @@ public static class LevelDataWindow
         LevelBuilder lb = FindInScene<LevelBuilder>(scene);
         if (lb != null) data.meta.coinValue = lb.defaultCoinValue;
 
+        // 本关发放哪些物品（LevelBuilder.Build 把它写进 PlayerInventory，这里必须读回来 ——
+        // 沿用上面那条铁律；漏读的话下一次导出会把它重置成"四件全给"）
+        PlayerInventory pi = FindInScene<PlayerInventory>(scene);
+        if (pi != null && pi.itemGrants != null)
+            data.meta.itemGrants = (bool[])pi.itemGrants.Clone();
+        // 长度按 schema（LevelMeta.ItemGrantCount）归一：缺的按"发放"补，免得往返比对因为长度不同而误报
+        data.meta.NormalizeItemGrants();
+
         // 相机取景（也是关卡数据，必须能往返，否则重建会把取景改掉）
         CameraFollow cf = FindInScene<CameraFollow>(scene);
         if (cf != null)
@@ -803,12 +811,78 @@ public static class LevelDataWindow
         //      "0 也是合法值"的字段，否则教程关的 levelIndex = 0 会被改成 1（踩过）。
         SlimeDemoSetup.AutoWireMenu();
 
+        // 5) 把【刚写进 prefab 实例组件】的字段登记成覆盖（override）——否则 SaveScene 时被静默丢弃。
+        //    为什么必需：关卡场景里的 PlayerInventory / SlimePathFollow 是 Player.prefab / Slime.prefab 的
+        //      stripped 实例组件，落盘值 = prefab 资产值 + 该实例的 m_Modifications 覆盖表；
+        //      LevelBuilder 直接改 C# 字段绕过了 Inspector 的 SerializedObject 通道，不进覆盖表就没救
+        //      （06_问题.md #24 的 stoneCount 就是这个坑，症状是"改 JSON 不生效"；
+        //        判据与场景 YAML 证据见 _workflow\_审计_prefab实例字段丢失.md §1/§3）。
+        //      · inventory  = 本关发放哪些物品（meta.itemGrants）← 本次修的就是它
+        //      · pathFollow = 开局引导石颗数（meta.startStones）← #24 本体，同一个坑
+        //      ⚠ 必须放在 AutoWireMenu 之后：AutoWire 也会写实例字段（它自己会做记录），
+        //        这里要同步的是重建结束时的最终值。
+        SyncPrefabOverride(builder.inventory, "itemGrants");
+        SyncPrefabOverride(builder.pathFollow, "stoneCount");
+
         EditorSceneManager.MarkSceneDirty(scene);
         AssetDatabase.Refresh();
 
         msg = string.Format("重建完成：删掉 {0} 个旧对象，生成 {1} 个新对象（根节点 {2}）。\n数据来源：{3}",
             removed, builder.Spawned.Count, root != null ? root.name : "(失败)", jsonPath);
         return true;
+    }
+
+    /// <summary>
+    /// 把"代码刚写进组件字段"的值同步到 prefab 实例的覆盖表里（两步：先清旧覆盖，再记当前值）。
+    ///
+    /// 为什么必须做（`06_问题.md` #24 同款坑，别再踩第三次）：
+    ///   关卡场景里的 PlayerInventory / SlimePathFollow 是 Player.prefab / Slime.prefab 的
+    ///   **stripped 实例组件**（YAML 里没有字段体，只有 m_PrefabInstance + m_Script 这类头部）。
+    ///   它的落盘值 = prefab 资产值 + 该实例 m_Modifications 覆盖表里的覆盖项。
+    ///   Inspector 改值走 SerializedObject，会自动进覆盖表；脚本直接改 C# 字段不进 ⇒
+    ///   **SaveScene 时被静默丢弃**，症状就是"改了 JSON / 面板，重建后场景里根本没这个字段，关卡配置不生效"。
+    ///   Unity 文档也写明：不调 RecordPrefabInstancePropertyModifications，对实例的改动会丢失
+    ///   （docs.unity3d.com/2022.3/Documentation/ScriptReference/PrefabUtility.RecordPrefabInstancePropertyModifications.html）。
+    ///   `LevelBuilder.Build` 是运行时脚本（不引用 UnityEditor）⇒ 登记这一步只能放在编辑器侧这里。
+    ///   判据与场景 YAML 证据见 `_workflow\_审计_prefab实例字段丢失.md` §1 / §3。
+    ///
+    /// 为什么要"先清"：
+    ///   RecordPrefabInstancePropertyModifications 只负责把【当前的差异】记进覆盖表，不保证清旧账。
+    ///   否则"上一轮 itemGrants[3]=false、这一轮想改回 true"时，旧的 data[3]=0 会留在表里继续生效。
+    ///   先按字段名把旧覆盖删掉（Get/SetPropertyModifications 的标准往返：Get 整实例 → 过滤 → Set 回去，
+    ///   不碰别的组件的覆盖项），再记录当前值：
+    ///     · 值 ≠ prefab 默认 → 覆盖表里出现该字段（生效）
+    ///     · 值 == prefab 默认 → 覆盖表里不留该字段（等价于取 prefab 的值 = 我们要的"四件全给"）
+    ///   两种结果都确定，不依赖 Record 的清理语义。
+    /// </summary>
+    static void SyncPrefabOverride(Component c, string fieldName)
+    {
+        if (c == null || string.IsNullOrEmpty(fieldName)) return;
+        EditorUtility.SetDirty(c);
+        if (!PrefabUtility.IsPartOfPrefabInstance(c)) return;   // 普通场景对象：本来就落盘，不用管
+
+        GameObject root = PrefabUtility.GetOutermostPrefabInstanceRoot(c.gameObject);
+        UnityEngine.Object scope = root != null ? (UnityEngine.Object)root : (UnityEngine.Object)c;
+
+        PropertyModification[] mods = PrefabUtility.GetPropertyModifications(scope);
+        if (mods != null && mods.Length > 0)
+        {
+            List<PropertyModification> keep = new List<PropertyModification>(mods.Length);
+            for (int i = 0; i < mods.Length; i++)
+            {
+                PropertyModification m = mods[i];
+                if (m == null) continue;
+                string path = m.propertyPath;
+                // 数组字段的覆盖项形如 itemGrants.Array.size / itemGrants.Array.data[3]；
+                // 标量字段就是 stoneCount。这两个字段名在 4 个实例脚本里都唯一，不会误伤别的组件。
+                if (!string.IsNullOrEmpty(path) &&
+                    (path == fieldName || path.StartsWith(fieldName + "."))) continue;
+                keep.Add(m);
+            }
+            if (keep.Count != mods.Length) PrefabUtility.SetPropertyModifications(scope, keep.ToArray());
+        }
+
+        PrefabUtility.RecordPrefabInstancePropertyModifications(c);
     }
 
     static LevelBuilder EnsureBuilder(Scene scene, ExportResult existing)
@@ -827,6 +901,8 @@ public static class LevelDataWindow
         if (builder.pathFollow == null) builder.pathFollow = FindInScene<SlimePathFollow>(scene);
         if (builder.cameraFollow == null) builder.cameraFollow = FindInScene<CameraFollow>(scene);
         if (builder.muralFont == null) builder.muralFont = FindMuralFont();
+        // 本关发放哪些物品要写进 PlayerInventory —— 这里按类型补引用（编辑器工具里不用 FindObjectOfType）
+        if (builder.inventory == null) builder.inventory = FindInScene<PlayerInventory>(scene);
         if (builder.player == null)
         {
             PlayerController pc = FindInScene<PlayerController>(scene);
@@ -1501,6 +1577,10 @@ public class LevelDataEditorWindow : EditorWindow
 {
     const float LabelW = 320f;
     const float NumW = 96f;
+    /// <summary>物品发放开关里每个勾选框的宽度（4 个一行放得下）。</summary>
+    const float GrantW = 96f;
+    /// <summary>物品发放开关的中文名，索引 = 槽位序号 = ItemType 值（与 PlayerInventory.slots 对应）。</summary>
+    static readonly string[] ItemGrantLabels = { "空手(恒开)", "哨子", "引导石", "跳跃云朵瓶" };
 
     int _levelPicker;
     LevelData _data;
@@ -1667,6 +1747,7 @@ public class LevelDataEditorWindow : EditorWindow
         m.barMaxOverride = RowI("售价条满格覆盖（0 = 自动 = 10 × parTime）", m.barMaxOverride);
         m.startStones = RowI("开局引导石颗数", m.startStones);
         m.coinValue = RowI("默认金币面值", m.coinValue);
+        m.itemGrants = RowItemGrants("本关发放哪些物品（按槽位 1-4，空手恒开）", m.itemGrants);
         m.levelIndex = RowI("关卡编号 levelIndex（教程关 = 0）", m.levelIndex);
         m.saveProgress = RowBool("记录成绩 / 计星级（教程关取消勾选）", m.saveProgress);
 
@@ -1958,6 +2039,28 @@ public class LevelDataEditorWindow : EditorWindow
         v = EditorGUILayout.Toggle(v, GUILayout.Width(20f));
         EditorGUILayout.EndHorizontal();
         return v;
+    }
+
+    /// <summary>
+    /// 物品发放开关：一行 4 个勾选框（索引 = 槽位序号 = ItemType 值）。
+    /// 每一格显示物品中文名，避免让人对着数字猜"第 3 格是什么"。
+    /// 返回值长度恒为 LevelMeta.ItemGrantCount（缺的按"发放"补），保证写回 JSON 的形状稳定。
+    /// </summary>
+    static bool[] RowItemGrants(string label, bool[] v)
+    {
+        bool[] result = new bool[LevelMeta.ItemGrantCount];
+        for (int i = 0; i < result.Length; i++)
+            result[i] = (v != null && i < v.Length) ? v[i] : true;
+
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.LabelField(label, GUILayout.Width(LabelW));
+        for (int i = 0; i < result.Length; i++)
+        {
+            string name = (i < ItemGrantLabels.Length) ? ItemGrantLabels[i] : ("槽位" + (i + 1));
+            result[i] = EditorGUILayout.ToggleLeft(name, result[i], GUILayout.Width(GrantW));
+        }
+        EditorGUILayout.EndHorizontal();
+        return result;
     }
 
     /// <summary>参数用逗号分隔的文本框编辑：不同种类的参数个数不一样，这样最省事也最透明。</summary>

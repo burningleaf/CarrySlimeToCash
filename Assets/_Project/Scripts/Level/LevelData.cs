@@ -207,6 +207,43 @@ public class LevelMeta
     public int startStones = 3;        // D1：开局给几颗引导石
     public int coinValue = 10;         // 默认金币面值
 
+    // ---------------- 每关发放哪些物品 ----------------
+    // 用户口径（2026-09-23）：每个关卡发放的物品可以不同，但 demo 阶段四件全给。
+    // 这条"可调"链路的三个端点：
+    //   数据 LevelMeta.itemGrants → LevelBuilder.Build 写进场景 PlayerInventory.itemGrants
+    //   → PlayerInventory.IsSlotAvailable 决定第 N 格能不能选中、能不能用它的能力
+    //   （导出时 LevelDataWindow.ExportScene 必须读回来，否则重建会把它重置成"全给"）
+    /// <summary>物品开关个数 = 物品栏槽位数。索引 = 槽位序号 = ItemType 的值。</summary>
+    public const int ItemGrantCount = 4;
+
+    /// <summary>本关发放哪些物品。索引：0=空手(None) 1=哨子(Whistle) 2=引导石(GuideStone) 3=跳跃云朵瓶(CloudBottle)。
+    ///  true = 本关发放这件物品。demo 阶段口径 = 全部 true（四件全给）。
+    ///  ⚠ 索引 0（空手）永远可用：它不是"发放的物品"，而是"没有物品"这个状态，关掉等于把抓取 / 投掷 / 放置全砍了。</summary>
+    public bool[] itemGrants = AllItemGrants();
+
+    /// <summary>demo 口径的默认发放：全部发放。</summary>
+    public static bool[] AllItemGrants()
+    {
+        bool[] grants = new bool[ItemGrantCount];
+        for (int i = 0; i < grants.Length; i++) grants[i] = true;
+        return grants;
+    }
+
+    /// <summary>把物品开关补齐成 ItemGrantCount 长：缺的按"发放"兜底、多出来的丢掉。
+    ///  老 JSON（没有这个字段）读进来就是 demo 口径的"四件全给"。</summary>
+    public void NormalizeItemGrants()
+    {
+        if (itemGrants != null && itemGrants.Length == ItemGrantCount) return;
+
+        bool[] grants = AllItemGrants();
+        if (itemGrants != null)
+        {
+            int n = Mathf.Min(itemGrants.Length, ItemGrantCount);
+            for (int i = 0; i < n; i++) grants[i] = itemGrants[i];
+        }
+        itemGrants = grants;
+    }
+
     // ---------------- 关卡编号与存档 ----------------
     /// <summary>第几关（写进 LevelManager.levelIndex，决定 PlayerPrefs 的键）。
     /// 教程关 = 0：通关会解锁 LevelUnlocked_1，但自己不占正式关的编号</summary>
@@ -268,6 +305,7 @@ public class LevelData
         if (meta == null) meta = new LevelMeta();
         if (meta.starRatios == null || meta.starRatios.Length < 3)
             meta.starRatios = new float[] { 0.6f, 0.9f, 1.1f };
+        meta.NormalizeItemGrants();      // 老 JSON 没这个字段 → 补齐成 demo 口径的"四件全给"
         if (terrain == null) terrain = new TerrainBlock[0];
         if (objects == null) objects = new LevelObject[0];
         if (links == null) links = new LevelLink[0];
@@ -367,6 +405,8 @@ public class LevelData
             if (FindObject(l.targetId) == null) w.Add("联动目标的 id 不存在：" + l.targetId);
         }
         if (meta.startStones < 0) w.Add("startStones 为负");
+        if (meta.itemGrants != null && meta.itemGrants.Length > 0 && !meta.itemGrants[0])
+            w.Add("itemGrants[0]（空手）写 false 不生效：空手永远可用，要限制请关索引 1/2/3");
         return w;
     }
 
@@ -379,7 +419,7 @@ public class LevelData
         EnsureNoNulls();
         List<string> lines = new List<string>();
 
-        lines.Add(string.Format("META {0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}|{10}",
+        lines.Add(string.Format("META {0}|{1}|{2}|{3}|{4}|{5}|{6}|{7}|{8}|{9}|{10}|{11}",
             meta.levelId, meta.parTime, JoinFloats(meta.starRatios),
             meta.startStones, meta.coinValue,
             "idx" + meta.levelIndex + (meta.saveProgress ? "/save" : "/nosave"),
@@ -388,7 +428,9 @@ public class LevelData
             meta.useCameraBounds ? "bounds" : "free",
             meta.camMinX.ToString("0.###") + "," + meta.camMinY.ToString("0.###") + ".." +
             meta.camMaxX.ToString("0.###") + "," + meta.camMaxY.ToString("0.###"),
-            meta.cameraSize.ToString("0.###")));
+            meta.cameraSize.ToString("0.###"),
+            // 追加在【末尾】：老日志里前面 token 的位置不动，比对旧记录时只多一列。
+            "items" + JoinBools(meta.itemGrants)));
 
         List<string> t = new List<string>();
         for (int i = 0; i < terrain.Length; i++)
@@ -441,6 +483,15 @@ public class LevelData
         if (a == null || a.Length == 0) return "-";
         string s = "";
         for (int i = 0; i < a.Length; i++) { if (i > 0) s += ","; s += a[i]; }
+        return s;
+    }
+
+    /// <summary>物品开关在 META 行里的写法：1,0,1,1（顺序 = 槽位序号）。</summary>
+    static string JoinBools(bool[] a)
+    {
+        if (a == null || a.Length == 0) return "-";
+        string s = "";
+        for (int i = 0; i < a.Length; i++) { if (i > 0) s += ","; s += (a[i] ? "1" : "0"); }
         return s;
     }
 }

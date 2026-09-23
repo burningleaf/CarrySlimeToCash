@@ -2,10 +2,10 @@ using UnityEngine;
 
 /// <summary>
 /// 职责：唯一的动作键入口。按 PlayerInventory 当前物品用 switch 分发 E / Q 行为。
-///   空手     ：E 抓取（近距离，半径 1.2，判定宽容）或放置；Q 投掷
-///   哨子     ：E 切换史莱姆 Follow / Stay（双向开关，远距离生效）；Q 冲刺（限时加速，冷却中吹不响，待命时按 Q 无效）
-///   引导石   ：E 放置路径点（最多 3 个）；Q 清除全部路径点
-///   预留槽   ：无行为
+///   空手           ：E 抓取（近距离，半径 1.2，判定宽容）或放置；Q 投掷
+///   哨子           ：E 切换史莱姆 Follow / Stay（双向开关，远距离生效）；Q 冲刺（限时加速，冷却中吹不响，待命时按 Q 无效）
+///   引导石         ：E 放置路径点（最多 3 个）；Q 清除全部路径点
+///   跳跃云朵瓶     ：E/Q 都不碰史莱姆 —— 与"举史莱姆"【彻底互斥】（该物品赋予无限空中跳，见 PlayerInventory）
 /// Inspector：拖 PlayerController、PlayerInventory、SlimeController、SlimePathFollow、CarryPoint 空物体、AudioSource。
 /// 依赖：PlayerController、PlayerInventory、SlimeController、SlimePathFollow。
 /// 注意：全工程只有本脚本读 E / Q；携带 / 放置不改变史莱姆的 Follow / Stay 模式（模式只由玩家主动切换）。
@@ -115,8 +115,14 @@ public class PlayerGrab : MonoBehaviour
                 PlaceWaypoint();
                 break;
 
-            case ItemType.Slot4:
-                // 预留扩展槽
+            case ItemType.CloudBottle:
+                // 拿着「跳跃云朵瓶」时【完全不能举史莱姆】（彻底互斥）。
+                // 反馈复用已有的 errorClip（"操作被拒"那一声，和哨子吹不响的 sprintRefusedClip 同一个用途），
+                // 不新增任何音频资源。
+                // 只有在 allowSwitchWhileCarrying 被改成 true 这种非默认配置下才可能"已经抱着"：
+                // 那就先放下（否则会卡在抱着又扔不掉的死状态）。
+                if (IsCarrying) PlaceSlime();
+                else PlayClip(errorClip);
                 break;
         }
     }
@@ -146,7 +152,8 @@ public class PlayerGrab : MonoBehaviour
                 }
                 break;
 
-            case ItemType.Slot4:
+            case ItemType.CloudBottle:
+                // 云朵瓶只给空中跳能力，Q 没有额外行为（与抓取 / 投掷互斥，见 DoAction）
                 break;
         }
     }

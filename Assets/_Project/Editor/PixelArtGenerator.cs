@@ -109,6 +109,12 @@ public static class PixelArtGenerator
     public static Color32 slimeShade    = new Color32(206, 216, 214, 255);
     public static Color32 slimeHurtTint = new Color32(255, 146, 132, 255); // 受伤：浅灰 + 红调（可染色）
 
+    // 云朵瓶图标专用（浅蓝玻璃 + 棕色软木塞；云用中性的 fill/mid）
+    public static Color32 glassFill = new Color32(196, 232, 246, 255); // 玻璃主体
+    public static Color32 glassDeep = new Color32(150, 205, 232, 255); // 瓶底/厚处
+    public static Color32 corkFill  = new Color32(206, 162, 108, 255); // 软木塞
+    public static Color32 corkShade = new Color32(172, 128,  84, 255); // 塞顶一条深色
+
     // =======================================================================
     // 四、共享画布（⚠ 全类唯一，见文件头约定 5）
     // =======================================================================
@@ -223,6 +229,7 @@ public static class PixelArtGenerator
         L.Add(new Entry("ui", DirUi + "/Icon_GuideStone.png", SizeSmall, SizeSmall, PaintStone,   PoseIdle));
         L.Add(new Entry("ui", DirUi + "/Icon_None.png",       SizeSmall, SizeSmall, PaintNone,    PoseIdle));
         L.Add(new Entry("ui", DirUi + "/Icon_Slot4.png",      SizeSmall, SizeSmall, PaintSlot4,   PoseIdle));
+        L.Add(new Entry("ui", DirUi + "/Icon_CloudBottle.png", SizeSmall, SizeSmall, PaintCloudBottle, PoseIdle));
         L.Add(new Entry("ui", DirUi + "/Icon_StarOn.png",     SizeSmall, SizeSmall, PaintStarOn,  PoseIdle));
         L.Add(new Entry("ui", DirUi + "/Icon_StarOff.png",    SizeSmall, SizeSmall, PaintStarOff, PoseIdle));
 
@@ -829,6 +836,39 @@ public static class PixelArtGenerator
         canvas.Rect(U(15), U(13), U(20), U(15), white);    // 中横
         canvas.Rect(U(15), U(11), U(17), U(15), white);    // 中竖
         canvas.Rect(U(15), U(7),  U(17), U(9),  white);    // 方点
+    }
+
+    /// <summary>
+    /// 跳跃云朵瓶（第 4 格）：下半 = 软木塞 + 玻璃瓶，上半 = 一朵 3 瓣白云。
+    /// 16×16 下只求"剪影一眼认出云 + 瓶"，所以云独立摆在瓶口上方（不塞进瓶里 —— 塞进去会和玻璃糊成一团），
+    /// 细节只留玻璃左侧一条高光和云顶一个亮点。选中/普通/锁定三态由 slotFrames 的边框颜色表达 ⇒ 每个物品只要一张图。
+    /// </summary>
+    private static void PaintCloudBottle(int variant)
+    {
+        canvas.Fill(clear);
+
+        // 1) 瓶子（下半）：瓶身 → 瓶底深色带 → 颈 → 软木塞（塞顶压一条深色）
+        canvas.RoundedRect(U(8), U(2), U(22), U(12), Mathf.Max(1, U(4)), glassFill);
+        canvas.Rect(U(10), U(2), U(20), U(4),  glassDeep);
+        canvas.Rect(U(12), U(14), U(18), U(16), glassFill);
+        canvas.Rect(U(10), U(18), U(20), U(20), corkFill);
+        canvas.Rect(U(10), U(20), U(20), U(20), corkShade);
+
+        // 2) 云（上半，3 瓣）：先画一层偏下的阴影（mid），再画白云本体
+        canvas.Circle(11f * k, 24.0f * k, 3.0f * k, mid);
+        canvas.Circle(16f * k, 25.6f * k, 3.8f * k, mid);
+        canvas.Circle(21f * k, 24.0f * k, 3.0f * k, mid);
+        canvas.Circle(11f * k, 24.6f * k, 3.0f * k, fill);
+        canvas.Circle(16f * k, 26.2f * k, 3.8f * k, fill);
+        canvas.Circle(21f * k, 24.6f * k, 3.0f * k, fill);
+
+        // 3) 描边（与其它图标同一套：FillMask → StrokeMask 向外扩 stroke 像素）
+        bool[] body = FillMask(canvas.ToPixels());
+        canvas.StrokeMask(body, stroke, outline);
+
+        // 4) 最后一层细节（必须在描边之后，否则会被描边盖掉）
+        canvas.Rect(U(6), U(4), U(6), U(8), highlight);            // 玻璃左侧高光
+        canvas.Circle(16f * k, 25.4f * k, 1.4f * k, highlight);    // 云顶亮点
     }
 
     private static Vector2[] StarPoints(float cu, float outer, float innerRatio)

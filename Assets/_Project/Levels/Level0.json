@@ -12,6 +12,12 @@
         ],
         "startStones": 3,
         "coinValue": 10,
+        "itemGrants": [
+            true,
+            true,
+            true,
+            true
+        ],
         "levelIndex": 0,
         "saveProgress": false,
         "useCameraBounds": true,
@@ -691,6 +697,51 @@
             "muralId": "R2",
             "label": "",
             "sprIndex": 14
+        },
+        {
+            "qx": 36,
+            "qy": 14,
+            "sizeX": 2.0,
+            "sizeY": 1.600000023841858,
+            "muralId": "N1",
+            "label": "",
+            "sprIndex": 15
+        },
+        {
+            "qx": 44,
+            "qy": 14,
+            "sizeX": 2.0,
+            "sizeY": 1.600000023841858,
+            "muralId": "N2",
+            "label": "",
+            "sprIndex": 16
+        },
+        {
+            "qx": 52,
+            "qy": 14,
+            "sizeX": 2.0,
+            "sizeY": 1.600000023841858,
+            "muralId": "N3",
+            "label": "",
+            "sprIndex": 17
+        },
+        {
+            "qx": 60,
+            "qy": 14,
+            "sizeX": 2.0,
+            "sizeY": 1.600000023841858,
+            "muralId": "N4",
+            "label": "",
+            "sprIndex": 18
+        },
+        {
+            "qx": 200,
+            "qy": 14,
+            "sizeX": 3.200000047683716,
+            "sizeY": 1.600000023841858,
+            "muralId": "N5",
+            "label": "",
+            "sprIndex": 19
         }
     ]
 }
