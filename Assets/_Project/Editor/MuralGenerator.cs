@@ -441,7 +441,7 @@ public static class MuralGenerator
         c.Box(25, 4, 26, 9, k);
 
         // ×2：两个 E 键帽用箭头串起来 + 第二个加圈 = "同一件事做两次"
-        // （原来的"两个叠放小方块"读不出"按两次"，见 _workflow/14_教学关壁画规格.md §2.4-1）
+        // （原来的"两个叠放小方块"读不出"按两次"，见壁画规格文档 §2.4-1）
         c.KeyBadge(27f, 44f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);
         c.Arrow(32f, 60f, 44f, 60f, muralLineWidth, 5f, k);
         c.KeyBadge(49f, 44f, muralBadgeRadius, MuralGlyphE, muralBadgeGlyphPixel, k);
@@ -537,7 +537,7 @@ public static class MuralGenerator
 
     // =================================================================================
     //  五之二、物品栏 5 张（N1~N5）：四张单格拼成一条 + 一张"换物品前先放下"
-    //  出处：_workflow/14_教学关壁画规格.md §3（方案 B）。⚠ 顺序必须与 Level0.json 的
+    //  出处：壁画规格文档 §3（方案 B）。⚠ 顺序必须与 Level0.json 的
     //  murals 数组逐条一致（H1..H13, R1, R2, N1..N5 = 20 条）。
     // =================================================================================
 

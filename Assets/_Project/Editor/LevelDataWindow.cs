@@ -816,7 +816,7 @@ public static class LevelDataWindow
         //      stripped 实例组件，落盘值 = prefab 资产值 + 该实例的 m_Modifications 覆盖表；
         //      LevelBuilder 直接改 C# 字段绕过了 Inspector 的 SerializedObject 通道，不进覆盖表就没救
         //      （06_问题.md #24 的 stoneCount 就是这个坑，症状是"改 JSON 不生效"；
-        //        判据与场景 YAML 证据见 _workflow\_审计_prefab实例字段丢失.md §1/§3）。
+        //        判据与场景 YAML 证据见项目内部审计记录 §1/§3）。
         //      · inventory  = 本关发放哪些物品（meta.itemGrants）← 本次修的就是它
         //      · pathFollow = 开局引导石颗数（meta.startStones）← #24 本体，同一个坑
         //      ⚠ 必须放在 AutoWireMenu 之后：AutoWire 也会写实例字段（它自己会做记录），
@@ -844,7 +844,7 @@ public static class LevelDataWindow
     ///   Unity 文档也写明：不调 RecordPrefabInstancePropertyModifications，对实例的改动会丢失
     ///   （docs.unity3d.com/2022.3/Documentation/ScriptReference/PrefabUtility.RecordPrefabInstancePropertyModifications.html）。
     ///   `LevelBuilder.Build` 是运行时脚本（不引用 UnityEditor）⇒ 登记这一步只能放在编辑器侧这里。
-    ///   判据与场景 YAML 证据见 `_workflow\_审计_prefab实例字段丢失.md` §1 / §3。
+    ///   判据与场景 YAML 证据见项目内部审计记录 §1 / §3。
     ///
     /// 为什么要"先清"：
     ///   RecordPrefabInstancePropertyModifications 只负责把【当前的差异】记进覆盖表，不保证清旧账。

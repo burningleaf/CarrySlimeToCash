@@ -253,7 +253,7 @@ public class LevelBuilder : MonoBehaviour
 
         // 8) 相机取景（这是关卡数据，不该留在场景模板里）
         //    ⚠ 空判据必须单独起一行：原来这行写成「注释……  if (cameraFollow != null)」，
-        //      if 被注释吞掉 ⇒ cameraFollow 为空时下面整块照样执行，第一行就 NRE（t35 的 F2）。
+        //      if 被注释吞掉 ⇒ cameraFollow 为空时下面整块照样执行，第一行就 NRE。
         if (cameraFollow != null)
         {
             cameraFollow.useBounds = data.meta.useCameraBounds;
