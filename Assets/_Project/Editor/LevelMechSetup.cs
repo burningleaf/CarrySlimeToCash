@@ -138,11 +138,22 @@ public static class LevelMechSetup
     // ======================= 建场景 =======================
 
     /// <summary>
-    /// 命令行入口（不要加 -quit 由它自己结束也无所谓，这个方法是同步的）：
-    ///   Unity.exe -batchmode -quit -projectPath ... -executeMethod LevelMechSetup.BatchCreateMechLevel
+    /// 菜单入口：保持"点一下就建关"的老行为（真正的活在同名的批处理入口里，见下）。
     /// </summary>
     [MenuItem("Tools/呆呆史莱姆/▷ 建机关测试关 LevelMech", false, 18)]
-    public static void BatchCreateMechLevel()
+    public static void CreateMechLevelMenu()
+    {
+        BatchCreateMechLevel();
+    }
+
+    /// <summary>
+    /// 命令行入口（不要加 -quit 由它自己结束也无所谓，这个方法是同步的）：
+    ///   Unity.exe -batchmode -quit -projectPath ... -executeMethod LevelMechSetup.BatchCreateMechLevel
+    /// 返回值 = **有没有建成功**：失败分支与原来一样只打日志，但改用返回值告诉调用方，
+    /// 不再让合并门禁靠"有没有抛异常"去猜。
+    /// ⚠ 菜单属性挂在上面那个 void 包装上 —— [MenuItem] 只要求"静态 + 无参"，不把返回值压给它。
+    /// </summary>
+    public static bool BatchCreateMechLevel()
     {
         // 1) 先写 JSON —— 数据是唯一真相源
         LevelData d = BuildMechData();
@@ -156,11 +167,11 @@ public static class LevelMechSetup
         //    必须用 AssetDatabase.CopyAsset，直接拷文件会复制 GUID，Unity 会报资源冲突。
         if (!File.Exists(ScenePath))
         {
-            if (!File.Exists(TemplateScene)) { Debug.LogError("[机关关] 找不到模板场景 " + TemplateScene); return; }
+            if (!File.Exists(TemplateScene)) { Debug.LogError("[机关关] 找不到模板场景 " + TemplateScene); return false; }
             if (!AssetDatabase.CopyAsset(TemplateScene, ScenePath))
             {
                 Debug.LogError("[机关关] 复制模板场景失败：" + TemplateScene + " → " + ScenePath);
-                return;
+                return false;
             }
             AssetDatabase.Refresh();
             Debug.Log("[机关关] 已从 " + TemplateScene + " 复制出场景模板 " + ScenePath);
@@ -180,11 +191,13 @@ public static class LevelMechSetup
         if (!LevelDataWindow.RebuildScene(scene, out string msg))
         {
             Debug.LogError("[机关关] 重建失败：" + msg);
-            return;
+            return false;
         }
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         AssetDatabase.SaveAssets();
         Debug.Log("[机关关] ✅ 建好了：" + msg);
+
+        return true;   // 门禁用的结论：建成功（失败分支都已 return false）
     }
 }

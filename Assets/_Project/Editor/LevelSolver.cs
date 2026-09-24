@@ -780,6 +780,12 @@ public static class LevelSolver
         public int coinTotal;
         public bool dumpSegments;
 
+        // ---- 【性能】求解耗时（只给报告最末尾那两行用；负数 = 没测 ⇒ 该行不打印）----
+        /// <summary>Solve 段耗时（毫秒）：由两个入口在调用 Solve 前起表、调用后落值。</summary>
+        public double solveMs = -1.0;
+        /// <summary>其中 R* 掩码枚举的累计耗时（毫秒）：围着真实那一次 ComputeBestScore 调用累加。</summary>
+        public double bestScoreMs = -1.0;
+
         // ---- 【最优解 R*】掩码枚举的结果（玩家最多能赚多少）----
         public int coinCount;                        // n：金币总数（含求解器"拿不到"的）
         public long maskCount;                       // 2^n：枚举过的掩码总数
@@ -1070,7 +1076,11 @@ public static class LevelSolver
 
         // 【最优解 R*】在（站点 × 金币掩码）状态空间上枚举，求"玩家最多能赚多少"。
         // 放在这里是因为它要复用上面已经建好的图 g 与拓扑 topo（⛔ 不重建图）。
+        // 【性能】围着**真实那一次**枚举计时（⛔ 不是另外再跑一遍）；若真的被调用多次就累加。
+        System.Diagnostics.Stopwatch perfR = System.Diagnostics.Stopwatch.StartNew();
         ComputeBestScore(r, g, topo);
+        perfR.Stop();
+        r.bestScoreMs = (r.bestScoreMs < 0.0 ? 0.0 : r.bestScoreMs) + perfR.Elapsed.TotalMilliseconds;
 
         return r;
     }
@@ -1405,6 +1415,8 @@ public static class LevelSolver
 
     public static string BuildReport(LevelData data, Report r)
     {
+        // 【性能】只测"报告组装"这一段（⛔ 不含调用方的 Debug.Log / 场景打开）
+        System.Diagnostics.Stopwatch perfAsm = System.Diagnostics.Stopwatch.StartNew();
         StringBuilder sb = new StringBuilder();
         sb.AppendLine("========== 关卡求解报告：" + data.meta.levelId + " ==========");
         sb.AppendLine(string.Format(
@@ -1781,6 +1793,16 @@ public static class LevelSolver
         }
 
         sb.AppendLine("==========================================");
+
+        // 【性能】求解耗时（两个入口都填了才打印；⛔ 这两行必须是报告的**最末两行**）
+        perfAsm.Stop();
+        if (r.solveMs >= 0.0)
+        {
+            sb.AppendLine(string.Format("【性能】求解耗时 {0:F2} ms", r.solveMs + perfAsm.Elapsed.TotalMilliseconds));
+            if (r.bestScoreMs >= 0.0)
+                sb.AppendLine(string.Format("【性能】其中 R* 掩码枚举 {0:F2} ms", r.bestScoreMs));
+        }
+
         return sb.ToString();
     }
 
@@ -2129,7 +2151,11 @@ public static class LevelSolver
             string.Format("（实际 {0:0.00}，预期 {1:0.00} ±{2:0.00}）", got, want, tol));
     }
 
-    public static void BatchSolverSelfTest()
+    /// <summary>
+    /// 求解器自检。返回值 = **失败条数**（0 = 全过），给合并门禁（BatchGates）判过用。
+    /// 判据逻辑、阈值、期望值、日志文案一个字没动 —— 只是把原来只打印的 fail 计数器返回出去。
+    /// </summary>
+    public static int BatchSolverSelfTest()
     {
         Ability ab = new Ability();
         // ⚠ 自检桩用**显式**的玩家高度，不依赖场景（场景里读不到就退回默认值，手算答案就没法固定）。
@@ -2639,6 +2665,8 @@ public static class LevelSolver
         if (!Application.isBatchMode)
             EditorUtility.DisplayDialog("求解器自检",
                 string.Format("通过 {0} 项，失败 {1} 项 —— 详细结果看 Console", pass, fail), "好");
+
+        return fail;   // 门禁用的结论：失败条数（0 = 全过）
     }
 
     // ======================= 菜单入口 =======================
@@ -2663,8 +2691,10 @@ public static class LevelSolver
         if (d == null) { Debug.LogError("[求解器] JSON 解析失败：" + json); return; }
 
         Ability ab = ReadAbility(scene);
+        System.Diagnostics.Stopwatch perfSw = System.Diagnostics.Stopwatch.StartNew();   // 【性能】只夹"求解"这一段
         Report r = Solve(d, ab, null);
         r.dumpSegments = true;
+        perfSw.Stop(); r.solveMs = perfSw.Elapsed.TotalMilliseconds;                     // ⛔ 不含下面的逃课检测（它要重解 24 次）
         RunObstacleTests(d, ab, r, 24);
 
         Debug.Log(BuildReport(d, r));
@@ -2691,8 +2721,10 @@ public static class LevelSolver
                 ab = ReadAbility(sc);
             }
 
+            System.Diagnostics.Stopwatch perfSw = System.Diagnostics.Stopwatch.StartNew();   // 【性能】只夹"求解"这一段
             Report r = Solve(d, ab, null);
             r.dumpSegments = true;
+            perfSw.Stop(); r.solveMs = perfSw.Elapsed.TotalMilliseconds;                     // ⛔ 不含下面的逃课检测（它要重解 24 次）
             RunObstacleTests(d, ab, r, 24);
             Debug.Log(BuildReport(d, r));
         }

@@ -203,9 +203,10 @@ public static class LevelDataWindow
 
     /// <summary>
     /// 命令行入口：导出 → 重建 → 再导出 → 逐行比对。「一致才保存场景」，不一致就保持原文件不动。
+    /// 返回值 = **失败关卡数**（0 = 全过），给合并门禁（BatchGates）判过用；判据与日志文案一个字没动。
     /// Unity.exe -batchmode -quit -projectPath ... -executeMethod LevelDataWindow.BatchRoundTripAll
     /// </summary>
-    public static void BatchRoundTripAll()
+    public static int BatchRoundTripAll()
     {
         EnsureDir(LevelsDir);
         int pass = 0, fail = 0;
@@ -271,6 +272,8 @@ public static class LevelDataWindow
 
         AssetDatabase.Refresh();
         Debug.Log("[关卡数据] 往返检查批处理结束：通过 " + pass + " 个 / 失败 " + fail + " 个。");
+
+        return fail;   // 门禁用的结论：失败关卡数（0 = 全过）
     }
 
     /// <summary>

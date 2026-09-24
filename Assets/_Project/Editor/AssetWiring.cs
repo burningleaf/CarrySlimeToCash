@@ -41,6 +41,14 @@ public static class AssetWiring
     const string SfxRoot = ProjectRootName + "/Audio/SFX/";
     const string ScenesRoot = ProjectRootName + "/Scenes/";
 
+    // ======================= 精灵文件（t98 新增：终点观感） =======================
+    // ⚠ 这里的路径必须与 GoalStationGenerator.StationPath 一致（那边是生成器）。
+    //    本文件刻意【不硬引用】生成器：它的既定约定是"缺依赖也能编译，全靠反射"，
+    //    所以路径字符串自己留一份；文件不存在时只警告、不写空值（见 WireBuilderSprites）。
+
+    const string ArtEnvironmentRoot = ProjectRootName + "/Art/Environment/";
+    const string SpriteGoalStation = ArtEnvironmentRoot + "Sprite_GoalStation.png";
+
     // ======================= 音频文件（改文件名只改这里） =======================
 
     const string ClipUiClick = SfxRoot + "UI/SFX_UI_Click.wav";
@@ -81,6 +89,8 @@ public static class AssetWiring
         ScenesRoot + "Level0.unity",
         ScenesRoot + "Level1.unity",
         ScenesRoot + "Level2.unity",
+        // t98 新增：第 4 关。场景还没建好时 Exists() 会只警告 + 记进"已跳过"，所以加进来是安全的
+        ScenesRoot + "Level3.unity",
         ScenesRoot + "LevelMech.unity",
     };
 
@@ -234,6 +244,8 @@ public static class AssetWiring
             WireHierarchy(roots[i], pass);
             // ① LevelBuilder 自己的 7 个 clip 字段（场景里的序列化值，必须写进场景再保存）
             WireBuilders(roots[i], pass);
+            // ①' LevelBuilder 的精灵字段（t98：终点观感；同一套"只填空值 + 反射赋值"流程）
+            WireBuilderSprites(roots[i], pass);
         }
     }
 
@@ -325,6 +337,38 @@ public static class AssetWiring
         }
     }
 
+    /// <summary>
+    /// 场景里 LevelBuilder 的**精灵**字段（t98 新增；目前只有终点观感 goalSprite）。
+    /// 与 WireBuilders 走同一套流程（只看空值 → 反射赋值 → MarkDirty → 计数 + 打日志），区别只有一个：
+    /// 资源类型是 Sprite 而不是 AudioClip，所以用 BuilderSpriteRules + pass.LoadSprite。
+    ///
+    /// 两条硬要求：
+    ///   · **资源不存在时只警告 + 记进缺失清单，绝不写空值** —— 否则"先跑接线、后跑生成"会把字段清空；
+    ///   · **字段已有值就跳过**（手工拖过的、上一次接线的都不覆盖）⇒ 幂等：反复跑结果一样，
+    ///     而且没改动时 pass.Total 不变 ⇒ 场景文件不会被重写（场景是 MD5 校验 / 往返比对的对象）。
+    /// </summary>
+    static void WireBuilderSprites(GameObject root, Pass pass)
+    {
+        LevelBuilder[] builders = root.GetComponentsInChildren<LevelBuilder>(true);
+        for (int i = 0; i < builders.Length; i++)
+        {
+            LevelBuilder b = builders[i];
+            if (b == null) continue;
+            for (int k = 0; k < BuilderSpriteRules.Length; k++)
+            {
+                SpriteRule r = BuilderSpriteRules[k];
+                if (r.info == null) continue;                              // 建表时已经警告过
+                if ((Sprite)r.info.GetValue(b) != null) continue;           // 手工调过 / 已接过 → 不覆盖
+                Sprite spr = pass.LoadSprite(r.path);
+                if (spr == null) continue;                                  // 缺文件 → 已记进缺失清单（⛔ 不写空值）
+                r.info.SetValue(b, spr);
+                MarkDirty(b, pass);
+                pass.BuilderSprites++;
+                Debug.Log("[精灵接线]   " + b.gameObject.name + " / LevelBuilder." + r.field + "  <-  " + r.path);
+            }
+        }
+    }
+
     static void MarkDirty(UnityEngine.Object o, Pass pass)
     {
         if (o == null || pass.prefabMode) return;      // 预制体内容最后统一 SaveAsPrefabAsset
@@ -407,6 +451,15 @@ public static class AssetWiring
         R(typeof(LevelBuilder), "hazardHitClip", ClipSlimeHurt),
     };
 
+    // ---- 精灵映射表（t98 新增）----
+    // 与 BuilderRules 同一套"字段=资源路径"写法，只是资源类型是 Sprite（走 RSprite + pass.LoadSprite）。
+    // 终点观感：LevelBuilder.goalSprite ← Art/Environment/Sprite_GoalStation.png
+    // ⛔ 这个字段留空时 BuildGoal 会回退旧观感（金色圆点），所以"找不到图"不是错误，只是没接上。
+    static readonly SpriteRule[] BuilderSpriteRules =
+    {
+        RSprite(typeof(LevelBuilder), "goalSprite", SpriteGoalStation),
+    };
+
     static Target T(System.Type type, params string[] fieldClipPairs)
     {
         Rule[] rules = new Rule[fieldClipPairs.Length];
@@ -437,6 +490,22 @@ public static class AssetWiring
         return new Rule(field, clipPath, f);
     }
 
+    /// <summary>
+    /// 精灵版建表：字段必须是 Sprite。
+    /// 找不到字段（例如老版 LevelBuilder 还没有 goalSprite）⇒ 只警告 + 记进"代码里找不到的字段"，不中断。
+    /// </summary>
+    static SpriteRule RSprite(System.Type type, string field, string spritePath)
+    {
+        FieldInfo f = type.GetField(field, BindingFlags.Public | BindingFlags.Instance);
+        if (f == null || f.FieldType != typeof(Sprite))
+        {
+            Debug.LogWarning("[精灵接线] 代码里没有 Sprite 字段 " + type.Name + "." + field + "（映射表里有，跳过）");
+            MissingFields.Add(type.Name + "." + field);
+            return new SpriteRule(field, spritePath, null);
+        }
+        return new SpriteRule(field, spritePath, f);
+    }
+
     // ======================= 数据结构 =======================
 
     class Rule
@@ -453,10 +522,25 @@ public static class AssetWiring
         }
     }
 
+    class SpriteRule
+    {
+        public readonly string field;
+        public readonly string path;
+        public readonly FieldInfo info;      // 解析失败为 null
+
+        public SpriteRule(string field, string path, FieldInfo info)
+        {
+            this.field = field;
+            this.path = path;
+            this.info = info;
+        }
+    }
+
     class Target
     {
         public readonly System.Type type;
         public readonly Rule[] rules;
+
         public readonly FieldInfo audioSource;   // 组件没有 audioSource 字段就是 null
 
         public Target(System.Type type, Rule[] rules)
@@ -481,11 +565,17 @@ public static class AssetWiring
         public readonly Dictionary<string, AudioClip> Cache = new Dictionary<string, AudioClip>();
         public readonly List<string> Missing = new List<string>();        // 磁盘上没这个文件
         public readonly List<string> NotImported = new List<string>();    // 文件在，但 AssetDatabase 里没有
+        public readonly Dictionary<string, Sprite> SpriteCache = new Dictionary<string, Sprite>();
+        public readonly List<string> MissingSprites = new List<string>();       // t98：磁盘上没这个精灵文件
+        public readonly List<string> NotImportedSprites = new List<string>();   // t98：文件在，但没导入成 Sprite
         public int Sources;
         public int Clips;
         public int BuilderClips;
+        public int BuilderSprites;      // t98 新增：LevelBuilder 的精灵字段接线数
 
-        public int Total { get { return Sources + Clips + BuilderClips; } }
+        // ⚠ 这里必须把 BuilderSprites 算进去：WireAllScenes 用 `pass.Total > 0` 决定"要不要保存场景"，
+        //    漏了它就会出现"终点精灵接上了、场景却没保存"（看着成功，其实没落盘）。
+        public int Total { get { return Sources + Clips + BuilderClips + BuilderSprites; } }
 
         /// <summary>按路径取 clip。取不到返回 null（绝不抛异常），并记进缺失清单。</summary>
         public AudioClip Load(string path)
@@ -510,6 +600,33 @@ public static class AssetWiring
             }
             return clip;
         }
+
+        /// <summary>
+        /// 按路径取 Sprite（t98）。取不到返回 null（绝不抛异常），并记进**精灵**缺失清单。
+        /// 与 Load 同一个道理：LoadAssetAtPath 对不存在的路径只返回 null；
+        /// "文件在但拿不到 Sprite" 通常是还没导入 / 导入类型不是 Sprite ⇒ 单独记一条，方便排查。
+        /// </summary>
+        public Sprite LoadSprite(string path)
+        {
+            Sprite cached;
+            if (SpriteCache.TryGetValue(path, out cached)) return cached;
+
+            Sprite spr = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            SpriteCache[path] = spr;
+
+            if (spr == null)
+            {
+                if (File.Exists(path))
+                {
+                    if (!NotImportedSprites.Contains(path)) NotImportedSprites.Add(path);
+                }
+                else
+                {
+                    if (!MissingSprites.Contains(path)) MissingSprites.Add(path);
+                }
+            }
+            return spr;
+        }
     }
 
     class FileStat
@@ -519,8 +636,9 @@ public static class AssetWiring
         public int sources;
         public int clips;
         public int builderClips;
+        public int builderSprites;      // t98
 
-        public int Total { get { return sources + clips + builderClips; } }
+        public int Total { get { return sources + clips + builderClips + builderSprites; } }
     }
 
     class Report
@@ -528,14 +646,17 @@ public static class AssetWiring
         public readonly List<FileStat> Files = new List<FileStat>();
         public readonly List<string> Missing = new List<string>();
         public readonly List<string> NotImported = new List<string>();
+        public readonly List<string> MissingSprites = new List<string>();       // t98
+        public readonly List<string> NotImportedSprites = new List<string>();   // t98
         public readonly List<string> Skipped = new List<string>();
         public int Scenes;
         public int Prefabs;
         public int Sources;
         public int Clips;
         public int BuilderClips;
+        public int BuilderSprites;      // t98 新增：终点精灵接线数
 
-        public int Total { get { return Sources + Clips + BuilderClips; } }
+        public int Total { get { return Sources + Clips + BuilderClips + BuilderSprites; } }
 
         public void Add(string kind, string label, Pass pass)
         {
@@ -545,17 +666,23 @@ public static class AssetWiring
             f.sources = pass.Sources;
             f.clips = pass.Clips;
             f.builderClips = pass.BuilderClips;
+            f.builderSprites = pass.BuilderSprites;
             Files.Add(f);
 
             if (kind == "场景") Scenes++; else Prefabs++;
             Sources += pass.Sources;
             Clips += pass.Clips;
             BuilderClips += pass.BuilderClips;
+            BuilderSprites += pass.BuilderSprites;
 
             for (int i = 0; i < pass.Missing.Count; i++)
                 if (!Missing.Contains(pass.Missing[i])) Missing.Add(pass.Missing[i]);
             for (int i = 0; i < pass.NotImported.Count; i++)
                 if (!NotImported.Contains(pass.NotImported[i])) NotImported.Add(pass.NotImported[i]);
+            for (int i = 0; i < pass.MissingSprites.Count; i++)
+                if (!MissingSprites.Contains(pass.MissingSprites[i])) MissingSprites.Add(pass.MissingSprites[i]);
+            for (int i = 0; i < pass.NotImportedSprites.Count; i++)
+                if (!NotImportedSprites.Contains(pass.NotImportedSprites[i])) NotImportedSprites.Add(pass.NotImportedSprites[i]);
         }
 
         public void Print()
@@ -574,13 +701,13 @@ public static class AssetWiring
                 }
                 else
                 {
-                    sb.AppendLine(string.Format("[音效接线]   {0} {1}：{2} 处（新挂 AudioSource {3}，组件 clip {4}，LevelBuilder clip {5}）",
-                        f.kind, f.label, f.Total, f.sources, f.clips, f.builderClips));
+                    sb.AppendLine(string.Format("[音效接线]   {0} {1}：{2} 处（新挂 AudioSource {3}，组件 clip {4}，LevelBuilder clip {5}，终点精灵 {6}）",
+                        f.kind, f.label, f.Total, f.sources, f.clips, f.builderClips, f.builderSprites));
                 }
             }
 
-            sb.AppendLine(string.Format("[音效接线] 合计：{0} 处（新挂 AudioSource {1}，组件 clip {2}，LevelBuilder clip {3}）",
-                Total, Sources, Clips, BuilderClips));
+            sb.AppendLine(string.Format("[音效接线] 合计：{0} 处（新挂 AudioSource {1}，组件 clip {2}，LevelBuilder clip {3}，终点精灵 {4}）",
+                Total, Sources, Clips, BuilderClips, BuilderSprites));
 
             if (Missing.Count == 0 && NotImported.Count == 0)
             {
@@ -594,6 +721,19 @@ public static class AssetWiring
                     sb.AppendLine("[音效接线]   × 没这个文件  " + Missing[i]);
                 for (int i = 0; i < NotImported.Count; i++)
                     sb.AppendLine("[音效接线]   ? 文件在但没导入  " + NotImported[i] + "（先 AssetDatabase.Refresh，或确认它是 AudioClip）");
+            }
+
+            // t98：终点精灵没接上时的说明。⛔ 这里只报告，不回写空值 —— 字段保持原样（留空 = 回退旧观感）。
+            if (MissingSprites.Count > 0 || NotImportedSprites.Count > 0)
+            {
+                sb.AppendLine(string.Format("[精灵接线] 精灵文件缺失 {0} 个（这些 sprite 字段这次没接上；先跑一次生成器，再跑本工具）：",
+                    MissingSprites.Count + NotImportedSprites.Count));
+                for (int i = 0; i < MissingSprites.Count; i++)
+                    sb.AppendLine("[精灵接线]   × 没这个文件  " + MissingSprites[i] +
+                                  "（先生成：Unity -executeMethod GoalStationGenerator.BatchGenerateGoalStation）");
+                for (int i = 0; i < NotImportedSprites.Count; i++)
+                    sb.AppendLine("[精灵接线]   ? 文件在但没导入成 Sprite  " + NotImportedSprites[i] +
+                                  "（确认它被导入为 Sprite(Single)，再跑本工具）");
             }
 
             if (MissingFields.Count > 0)

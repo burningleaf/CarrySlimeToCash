@@ -44,6 +44,17 @@ public class LevelBuilder : MonoBehaviour
     public Sprite circleSprite;       // 圆形物件（金币/引导石/终点…）
     public Sprite[] muralSprites = new Sprite[0];
 
+    [Header("终点贴图（收购站）；留空 = 回退旧观感（圆形 circleSprite + goal.color）")]
+    [Tooltip("收购站整图（Sprite_GoalStation）。留空时 BuildGoal 走旧的圆点分支，观感与以前一模一样。")]
+    public Sprite goalSprite;
+    [Tooltip("收购站贴图的自带颜色，别再乘 goal.color（旧圆点是靠染色区分物件的；整图自带上色）")]
+    public Color goalSpriteColor = Color.white;
+    [Tooltip("勾上：贴图按自身比例内接进判定框（各关都不变形，如 Level3 的 1.5×2 框）；" +
+             "关掉：贴图直接拉满判定框（可能与画稿比例不符）")]
+    public bool goalSpriteKeepAspect = true;
+    [Tooltip("勾上：贴图贴住判定框底边（房子踩在地上），只在比例内接后留下空白时有意义")]
+    public bool goalSpriteBottomAlign = true;
+
     [Header("地形外观")]
     public KindStyle ground = new KindStyle(new Color(0.42f, 0.44f, 0.50f), 1f, 0, false);
     public KindStyle oneWayPlatform = new KindStyle(new Color(0.62f, 0.52f, 0.40f), 1f, 1, false);
@@ -504,10 +515,29 @@ public class LevelBuilder : MonoBehaviour
         // 直接缩放根对象会把碰撞体一起放大。
         GameObject vis = new GameObject("Visual");
         vis.transform.SetParent(go.transform, false);
-        SpriteRenderer sr = vis.AddComponent<SpriteRenderer>();
-        sr.sprite = circleSprite;
-        sr.color = goal.color;
-        sr.sortingOrder = goal.sortingOrder;
+
+        if (goalSprite != null)
+        {
+            // 新观感：收购站整图挂在 Visual 的【子节点】上。
+            // ⚠ 为什么非要子节点：Goal.Update 每帧都把 pulseTarget(=Visual) 的 localScale 当呼吸动画重写
+            //    （_baseScale 在 Awake 抓、那时 pulseTarget 还没赋值 ⇒ 基准恒为 1），
+            //    所以"按比例内接"的那点缩放挂在 Visual 上会被每帧冲掉。
+            GameObject art = new GameObject("Art");
+            art.transform.SetParent(vis.transform, false);
+            SpriteRenderer ar = art.AddComponent<SpriteRenderer>();
+            ar.sprite = goalSprite;
+            ar.color = goalSpriteColor;
+            ar.sortingOrder = goal.sortingOrder;
+            LayoutGoalArt(art.transform, goalSprite, size);
+            Track(art);
+        }
+        else
+        {
+            SpriteRenderer sr = vis.AddComponent<SpriteRenderer>();
+            sr.sprite = circleSprite;
+            sr.color = goal.color;
+            sr.sortingOrder = goal.sortingOrder;
+        }
 
         BoxCollider2D box = go.AddComponent<BoxCollider2D>();
         box.size = Vector2.one;
@@ -524,6 +554,34 @@ public class LevelBuilder : MonoBehaviour
         g.arriveClip = goalClip;
         Track(vis);
         SetTag(go, "Goal");
+    }
+
+    /// <summary>
+    /// 终点贴图在判定框里的摆法（**判定框一个像素都不动**，只摆画面）：
+    ///   · 判定框 = JSON 的 sizeX×sizeY（Level0/1/2/LevelMech = 2×2；Level3 = 1.5×2），它决定"史莱姆进区即通关"的范围；
+    ///   · 贴图原生世界尺寸 = rect ÷ pixelsPerUnit（世界精灵规则 PPU = 像素宽 ⇒ 160px 的图 = 1×1 单位）；
+    ///   · goalSpriteKeepAspect：按贴图自身比例内接进框（各关都不变形）；关掉就直接拉满框；
+    ///   · goalSpriteBottomAlign：内接后上下留白时贴住框底（房子踩在地上，不悬空）。
+    /// 父级已经被缩成 (size.x, size.y)，所以子级的 localScale/localPosition 都要把这些量除回去。
+    /// 参数/开关全部走 public 字段，不写死在方法里。
+    /// </summary>
+    void LayoutGoalArt(Transform art, Sprite sprite, Vector2 box)
+    {
+        if (art == null || sprite == null) return;
+        float ppu = Mathf.Max(0.0001f, sprite.pixelsPerUnit);
+        float natW = sprite.rect.width / ppu;
+        float natH = sprite.rect.height / ppu;
+        float fit = goalSpriteKeepAspect
+            ? Mathf.Min(box.x / Mathf.Max(0.0001f, natW), box.y / Mathf.Max(0.0001f, natH))
+            : 1f;
+        float worldW = natW * fit;
+        float worldH = natH * fit;
+        float sx = box.x > 0.0001f ? worldW / box.x : 1f;
+        float sy = box.y > 0.0001f ? worldH / box.y : 1f;
+        float dx = box.x > 0.0001f ? -(box.x - worldW) * 0.5f / box.x : 0f;     // 水平居中
+        float dy = (goalSpriteBottomAlign && box.y > 0.0001f) ? -(box.y - worldH) * 0.5f / box.y : 0f;
+        art.localScale = new Vector3(sx, sy, 1f);
+        art.localPosition = new Vector3(dx, dy, 0f);
     }
 
     void BuildPlate(LevelObject o, GameObject go)

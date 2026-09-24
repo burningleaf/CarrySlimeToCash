@@ -45,7 +45,21 @@ public static class MechTest
 
     static readonly BindingFlags Any = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-    public static void BatchMechTest()
+    /// <summary>机关验收的退出码（与拆分前逐字一致：0 全过 / 5 有失败 / 1 环境不足没跑起来）。</summary>
+    public const int ExitCodePass = 0;
+    public const int ExitCodeFail = 5;
+    public const int ExitCodeNotRun = 1;
+
+    /// <summary>BatchMechTest() 的"没跑起来"返回值（负数 = 环境不足，不是"失败 0 条"）。</summary>
+    public const int FailNotRun = -1;
+
+    /// <summary>
+    /// 机关联动验收（无头）。返回值 = **失败条数**（0 = 全过；-1 = 环境不足没跑起来）。
+    /// **不再自己 EditorApplication.Exit** —— 退出挪到 BatchMechTestAndExit()，
+    /// 这样合并门禁（BatchGates）才能把四门串在一次启动里跑完、并自己决定退出码。
+    /// 判定逻辑、期望值、日志文案（含"通过 N 项 / 失败 M 项"）一个字没动。
+    /// </summary>
+    public static int BatchMechTest()
     {
         Result r = new Result();
         r.sb.AppendLine("========== 机关联动验收：LevelMech ==========");
@@ -53,8 +67,7 @@ public static class MechTest
         if (!System.IO.File.Exists(LevelMechSetup.ScenePath))
         {
             Debug.LogError("[机关测试] 找不到场景，先跑 ▷ 建机关测试关：" + LevelMechSetup.ScenePath);
-            EditorApplication.Exit(1);
-            return;
+            return FailNotRun;
         }
 
         Scene scene = EditorSceneManager.OpenScene(LevelMechSetup.ScenePath, OpenSceneMode.Single);
@@ -75,8 +88,7 @@ public static class MechTest
             plat1 == null || plat2 == null || enemy1 == null || cp1 == null)
         {
             Debug.LogError(Finish(r, "阶段 1 就有对象缺失，后面的行为测试没法做"));
-            EditorApplication.Exit(1);
-            return;
+            return FailNotRun;
         }
 
         PressurePlate pA = plateA.GetComponent<PressurePlate>();
@@ -150,7 +162,7 @@ public static class MechTest
         SlimeController slime = FindComponent<SlimeController>(scene);
         r.Info("场景里可驱动的脚本数量 = " + scripts.Count);
         r.Want("找到玩家", player != null, true);
-        if (player == null) { Debug.LogError(Finish(r, "没有玩家，行为测试没法做")); EditorApplication.Exit(1); return; }
+        if (player == null) { Debug.LogError(Finish(r, "没有玩家，行为测试没法做")); return FailNotRun; }
 
         SimulationMode2D savedMode = Physics2D.simulationMode;
         Physics2D.simulationMode = SimulationMode2D.Script;
@@ -291,8 +303,22 @@ public static class MechTest
         Teleport(player, spawn);
         Physics2D.simulationMode = savedMode;
 
-        int code = Finish(r, "机关验收结束");
-        EditorApplication.Exit(code);
+        Finish(r, "机关验收结束");
+        return r.fail;   // 门禁用的结论：失败条数（0 = 全过）
+    }
+
+    /// <summary>
+    /// 命令行入口（保留拆分前的退出行为，供老的外部脚本直接照用）：
+    ///   Unity.exe -batchmode -quit -projectPath ... -executeMethod MechTest.BatchMechTestAndExit
+    /// 退出码与拆分前逐字一致：**0 = 全过 / 5 = 有失败 / 1 = 环境不足没跑起来**。
+    /// ⚠ 拆分说明：原来 BatchMechTest() 自己就 EditorApplication.Exit —— 那会让"四门合并跑"第 4 门一退，
+    ///   后面的收尾汇总与退出码全都打不出来。现在退出只留在这里，BatchMechTest() 变成"只跑、返回失败条数"。
+    /// </summary>
+    public static void BatchMechTestAndExit()
+    {
+        int fail = BatchMechTest();
+        if (fail < 0) EditorApplication.Exit(ExitCodeNotRun);
+        else EditorApplication.Exit(fail == 0 ? ExitCodePass : ExitCodeFail);
     }
 
     // ======================= 工具 =======================
