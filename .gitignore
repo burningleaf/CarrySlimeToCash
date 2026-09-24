@@ -49,3 +49,22 @@ desktop.ini
 *.aab
 *.unitypackage
 *.app
+
+# ===== 本项目补充（2026-09-24）=====
+# 1) 工具 / 脚手架残留（若在工程根下生成）
+/_offline_scorer/
+/.tools/
+/.dsh-plugins/
+/.agent-teams/
+/.muralcheck/
+/.pixelcheck/
+# 2) 压缩包与临时产物（防止把回归包 / 截图包误提交）
+*.zip
+*.7z
+*.rar
+*.tmp
+sysinfo.txt
+crashlytics-build.properties
+# 3) Unity 常见残留（官方模板里也有；本项目现在没出现，属于"以后别踩"）
+/[Aa]ssets/[Aa]ssetStoreTools*
+/[Aa]ssets/Plugins/Editor/JetBrains*

@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 060dc3747cbfcf24ea2c6fafafadf340
+guid: ead7bdeaf11e5034a9e7c122251a857c
 TrueTypeFontImporter:
   externalObjects: {}
   serializedVersion: 4
@@ -9,7 +9,7 @@ TrueTypeFontImporter:
   characterPadding: 1
   includeFontData: 1
   fontNames:
-  - SimHei
+  - Source Han Sans SC
   fallbackFontReferences: []
   customCharacters: 
   fontRenderingMode: 0

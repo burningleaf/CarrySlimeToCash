@@ -59,6 +59,11 @@ public class PlayerController : MonoBehaviour
     [Header("调试")]
     [Tooltip("按了跳跃却跳不起来时，在 Console 打印原因。排查用，定稿前关掉")]
     public bool logJumpFailures = true;
+    [Tooltip("在上面那条【跳跃失败】日志后面再附一段【探针详情】：探针 origin(x,y) 与半径 / 玩家碰撞体底部 y 与 transform.y / " +
+             "groundLayer 与 standableLayer 的十进制 bits / 脚下半径内**所有**碰撞体（名字+层+isTrigger+是不是自己）/ " +
+             "Physics2D.queriesHitTriggers / IsSupported / IsCarrying。\n" +
+             "排查「明明静止站着却判不在地面」用（例如托住你的那个碰撞体不在起跳掩码里）。⛔ 纯只读，不参与任何判据；定稿前关掉。")]
+    public bool logJumpProbeDetails = true;
 
     [Header("地面检测")]
     [Tooltip("哪些层算【地面】。这是【起跳判据】—— 起跳、土狼时间、空中操控、贴墙检测都只看这个掩码。\n" +
@@ -74,6 +79,11 @@ public class PlayerController : MonoBehaviour
     public bool treatSlimeAsGround = true;
     [Tooltip("史莱姆所在层（Slime / CarriedSlime），【只用于可站立面判定】，不给跳跃用。留空自动兜底")]
     public LayerMask slimeStandLayer;
+    [Tooltip("【额外算作可站立地面】的实心机关层（默认 Gate = 门 / 桥石）。\n" +
+             "⚠ 玩家能踩上去的实心层必须都进【起跳判据】，否则会出现「明明站在门顶上却跳不起来」——\n" +
+             "关卡里门是当桥石 / 横杆用的（Level3 的 Pit2 桥石就是两块门），站在上面 IsGrounded 恒 false\n" +
+             "⇒ canJump 永远 false，人只能掉进尖刺坑。留空自动兜底为 Gate。")]
+    public LayerMask extraGroundLayers;
     public float groundCheckRadius = 0.18f;
     [Tooltip("没有拖 GroundCheck 子物体时，用碰撞体底部 + 这个偏移做地面检测")]
     public float groundProbeYOffset = 0.05f;
@@ -116,6 +126,9 @@ public class PlayerController : MonoBehaviour
     /// <summary>可站立面掩码 = groundLayer ∪ slimeStandLayer（treatSlimeAsGround 时才并）。
     ///  只在 UpdateGrounded 里用，而且【只写 IsSupported】，永远不参与起跳。</summary>
     private LayerMask _standableLayer;
+    /// <summary>最近一次地面探测用的原点（UpdateGrounded 里算出来的原样值）。
+    ///  只给「跳跃失败」诊断日志读 —— 不参与任何判据、不是序列化字段（不会动场景）。</summary>
+    private Vector2 _lastProbeOrigin;
 
     void Awake()
     {
@@ -130,6 +143,20 @@ public class PlayerController : MonoBehaviour
             if (sr != null && sr.transform != transform) spriteRoot = sr.transform;
         }
 
+        // ★ 探针接线修复（防御）：地面探针必须是【自己的子孙】。
+        //   接线脚本以前会在玩家自己没有 GroundCheck 子物体时，把【史莱姆的脚底探针】接给玩家
+        //   （Player.prefab 没有子物体 ⇒ 必触发）⇒ 玩家等于拿史莱姆的脚当地面：史莱姆在脚边能跳、
+        //   一举过头顶探针悬空 ⇒ IsGrounded 恒 false ⇒ "举着史莱姆就跳不起来"（跳不起来问题的定位 / 探针接线修复）。
+        //   这里再兜一层：不是自己的子孙就忽略它，改用【碰撞体底部 + groundProbeYOffset】兜底
+        //   （UpdateGrounded 里既有的那条路，Level2 一直走它，行为已被验证）。
+        if (groundCheck != null && !groundCheck.IsChildOf(transform))
+        {
+            Debug.LogWarning("[PlayerController] groundCheck（" + groundCheck.name + "）不是玩家的子孙，已忽略它、改用" +
+                             "【碰撞体底部 + groundProbeYOffset(" + groundProbeYOffset + ")】兜底。请检查场景接线" +
+                             "（自动接线只允许接宿主自己的子物体）。");
+            groundCheck = null;
+        }
+
         if (groundLayer.value == 0)
         {
             groundLayer = LayerMask.GetMask("Ground", "Platform", "MovingPlatform");
@@ -138,6 +165,15 @@ public class PlayerController : MonoBehaviour
 
         if (slimeStandLayer.value == 0)
             slimeStandLayer = LayerMask.GetMask("Slime", "CarriedSlime");
+
+        // ★ 跳不起来问题的定位：门层（Gate）是玩家【真的能踩上去】的实心方块（关卡里当桥石 / 横杆用），
+        //   但碰撞矩阵让玩家和门碰撞、它却不在起跳判据里 ⇒ 站在门顶上 IsGrounded 恒 false、
+        //   _lastGroundedTime 永不刷新 ⇒ canJump 永远 false ⇒ 跳不起来、只能掉下去（Level3 的 Pit2 桥石）。
+        //   这正是本文件 treatSlimeAsGround 注释里担心的那种「明明站着却判定不在地面 → 完全跳不起来」，
+        //   所以把"额外可站立层"并进起跳判据。extraGroundLayers 是 public 字段：留空兜底为 Gate，可在 Inspector 里加别的实心机关层。
+        if (extraGroundLayers.value == 0)
+            extraGroundLayers = LayerMask.GetMask("Gate");
+        groundLayer |= extraGroundLayers;
 
         // ★ 修 bug（2026）：以前这里是 `groundLayer |= LayerMask.GetMask("Slime", "CarriedSlime")`，
         //   把 Slime(7) / CarriedSlime(8) 并进了【起跳判据】。史莱姆跟随时贴在脚边 ⇒ OverlapCircle
@@ -241,10 +277,11 @@ public class PlayerController : MonoBehaviour
                 // 光看现象分不清是暂停(timeScale=0)、操控被关、还是地面检测失效。
                 Debug.LogWarning(string.Format(
                     "[跳跃失败] 贴地={0} 距上次着地={1:F2}s(宽限{2:F2}) 可操控={3} 死亡={4} " +
-                    "timeScale={5:F2} 速度=({6:F2},{7:F2}) 位置=({8:F2},{9:F2}) 云朵瓶空中跳={10}",
+                    "timeScale={5:F2} 速度=({6:F2},{7:F2}) 位置=({8:F2},{9:F2}) 云朵瓶空中跳={10}{11}",
                     IsGrounded, Time.time - _lastGroundedTime, coyoteTime, _controlEnabled, IsDead,
                     Time.timeScale, body.velocity.x, body.velocity.y,
-                    transform.position.x, transform.position.y, infiniteAirJump));
+                    transform.position.x, transform.position.y, infiniteAirJump,
+                    logJumpProbeDetails ? DescribeJumpProbe() : ""));
                 _jumpBufferCounter = 0f;   // 清掉，免得每帧刷屏
             }
         }
@@ -265,6 +302,7 @@ public class PlayerController : MonoBehaviour
             float footY = _collider != null ? _collider.bounds.min.y : transform.position.y;
             origin = new Vector2(transform.position.x, footY + groundProbeYOffset);
         }
+        _lastProbeOrigin = origin;   // 只给诊断日志用（不参与判据）
         // ① 起跳判据：只认【真地面】。史莱姆不算 —— 这就是"举着史莱姆无限空中跳"的根治点。
         IsGrounded = Physics2D.OverlapCircle(origin, groundCheckRadius, groundLayer);
 
@@ -377,6 +415,55 @@ public class PlayerController : MonoBehaviour
         Vector2 origin = new Vector2(transform.position.x + dir * (HalfWidth + 0.02f), footY + wallCheckHeight);
         RaycastHit2D hit = Physics2D.Raycast(origin, new Vector2(dir, 0f), wallCheckDistance, groundLayer);
         return hit.collider != null;
+    }
+
+    // ---------------- 【纯诊断】跳跃失败时的一次性详情（⛔ 只读，不参与任何判据） ----------------
+
+    /// <summary>
+    /// 把"为什么探不到地面"一次打全（挂在 logJumpFailures 那一行末尾，仍是一行日志）：
+    ///   探针 origin / groundCheckRadius / 玩家碰撞体底部 y / transform.y /
+    ///   groundLayer 与 _standableLayer 的十进制 bits / Physics2D.queriesHitTriggers /
+    ///   IsSupported / IsCarrying / **脚下半径内的每一个碰撞体**（名字 + 层（名+号）+ isTrigger + 是不是自己）。
+    /// 由 public 开关 logJumpProbeDetails 控制；关掉时返回空串 ⇒ 与原日志一字不差。
+    /// </summary>
+    private string DescribeJumpProbe()
+    {
+        string s = " [探针] origin=(" + _lastProbeOrigin.x.ToString("0.###") + "," + _lastProbeOrigin.y.ToString("0.###") + ")"
+                 + " 半径=" + groundCheckRadius.ToString("0.###")
+                 + " 碰撞体底部y=" + (_collider != null ? _collider.bounds.min.y.ToString("0.###") : "无碰撞体")
+                 + " transform.y=" + transform.position.y.ToString("0.###")
+                 + " groundLayer=" + groundLayer.value
+                 + " standableLayer=" + _standableLayer.value
+                 + " queriesHitTriggers=" + (Physics2D.queriesHitTriggers ? "Y" : "N")
+                 + " IsSupported=" + IsSupported
+                 + " IsCarrying=" + IsCarrying
+                 + " 脚下=(" + DescribeFootColliders() + ")";
+        return s;
+    }
+
+    /// <summary>
+    /// 【纯诊断】探针原点半径内**所有**层（`~0`）的碰撞体，逐个写成
+    /// `名字[layer=Ground(9) trigger=N 自己]`。
+    /// ⚠ 查询受 Physics2D.queriesHitTriggers 影响（同一条日志里会打出它的值）：
+    ///   =N 时列表里看不到 trigger 碰撞体（水/尖刺/压板/终点区都是 trigger）。
+    /// </summary>
+    private string DescribeFootColliders()
+    {
+        Collider2D[] hits = Physics2D.OverlapCircleAll(_lastProbeOrigin, groundCheckRadius, ~0);
+        if (hits == null || hits.Length == 0) return "半径内没有碰撞体";
+
+        string s = "";
+        for (int i = 0; i < hits.Length; i++)
+        {
+            Collider2D h = hits[i];
+            if (h == null) continue;
+            if (s.Length > 0) s += " / ";
+            int layer = h.gameObject.layer;
+            s += h.name + "[layer=" + LayerMask.LayerToName(layer) + "(" + layer + ") trigger=" + (h.isTrigger ? "Y" : "N");
+            if (_collider != null && h == _collider) s += " 自己";
+            s += "]";
+        }
+        return s.Length == 0 ? "半径内没有碰撞体" : s;
     }
 
     private void OnDrawGizmosSelected()

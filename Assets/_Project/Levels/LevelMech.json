@@ -12,6 +12,12 @@
         ],
         "startStones": 3,
         "coinValue": 10,
+        "itemGrants": [
+            true,
+            true,
+            true,
+            true
+        ],
         "levelIndex": 0,
         "saveProgress": false,
         "useCameraBounds": true,

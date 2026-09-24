@@ -109,25 +109,28 @@ public static class LevelDataWindow
                        ? lm.starRatios : new float[] { 0.6f, 0.9f, 1.1f };
 
         int barMax = LevelManager.BarMaxFor(par);
+        int barPoints = LevelManager.BarPointsFor(par);
         float drain = LevelManager.DrainRateFor(par);
         float drainPerSec = LevelManager.drainPerSecond;
         float parRemain = LevelManager.parRemain;
         float floorRatio = LevelManager.barFloor;
 
-        // 血条掉到下限需要多久（之后时间就不再掉血了）
-        float floorTime = drain > 0.0001f ? (1f - Mathf.Clamp01(floorRatio)) * 100f / drain : 9999f;
+        // 血条掉到下限需要多久（之后时间就不再掉血了）：(1 − 下限比例) × 血条点数 ÷ 掉血速度
+        float floorTime = drain > 0.0001f
+            ? (1f - Mathf.Clamp01(floorRatio)) * barPoints / drain
+            : 9999f;
         int coinTarget = Mathf.RoundToInt(2f * par);            // = 20% × barMax
         int baseline = Mathf.RoundToInt(barMax * parRemain) + coinTotal;
-        float bloodPerYuan = barMax > 0 ? 100f / barMax : 0f;   // 1 元 = 多少点血
+        float bloodPerYuan = barMax > 0 ? barPoints / barMax : 0f;   // 1 元 = 多少点血（= 1 ÷ 每点单价）
 
         StringBuilder sb = new StringBuilder();
         sb.AppendLine("========== 收益公式自检：" + scene.name + " ==========");
         sb.AppendLine(string.Format("【全局常数】每秒掉 {0:0.##} 元 ｜ 标准时间血条剩 {1:P0} ｜ 时间掉血下限 {2:P0}",
             drainPerSec, parRemain, floorRatio));
-        sb.AppendLine(string.Format("【本关】标准时间 {0:0.#}s → 售价条满格 {1} 元 ｜ 掉血速率 {2:0.###} 血/秒",
-            par, barMax, drain));
-        sb.AppendLine(string.Format("【换算】1 秒 = {0:0.##} 元 ｜ 1 点血 = {1:0.##} 元 ｜ 1 枚金币({2}元) = {3:0.#} 秒绕路预算",
-            drainPerSec, 1f / Mathf.Max(0.0001f, bloodPerYuan), 10, LevelManager.CoinDetourBudget(10)));
+        sb.AppendLine(string.Format("【本关】标准时间 {0:0.#}s → 售价条满格 {1} 元 ｜ 血条 {2} 点 ｜ 掉血 {3:0.###} 点/秒",
+            par, barMax, barPoints, drain));
+        sb.AppendLine(string.Format("【换算】1 秒 = {0:0.##} 元 ｜ 1 点 = {1:0.##} 元（= {2:0.##} 点/元；血条 = 2 × parTime 点）｜ 1 枚金币({3}元) = {4:0.#} 秒绕路预算",
+            drainPerSec, LevelManager.moneyPerHp, bloodPerYuan, 10, LevelManager.CoinDetourBudget(10)));
         sb.AppendLine(string.Format("【金币】本关 {0} 元，目标 ≈ {1} 元（= 2 × 标准时间）{2}",
             coinTotal, coinTarget,
             Mathf.Abs(coinTotal - coinTarget) <= coinTarget * 0.25f ? "  ✅" : "  ⚠ 偏离目标"));
@@ -152,8 +155,10 @@ public static class LevelDataWindow
         for (int i = 0; i < times.Count; i++)
         {
             float t = times[i];
-            float hpLeft = Mathf.Max(Mathf.Clamp01(floorRatio) * 100f, 100f - drain * t);
-            int price = Mathf.RoundToInt(barMax * hpLeft / 100f);
+            // 血条按**点数**算（总长 = 2×parTime 点），显示时换算成百分比 —— 与旧口径逐行等值
+            float hpLeft = Mathf.Max(Mathf.Clamp01(floorRatio) * barPoints, barPoints - drain * t);
+            float hpRatio = barPoints > 0f ? Mathf.Clamp01(hpLeft / barPoints) : 0f;
+            int price = Mathf.RoundToInt(barMax * hpRatio);
             string note = "";
             if (Mathf.Abs(t - par) < 0.01f) note = "← 标准时间";
             else if (!floorMarked && t >= floorTime && floorTime < 9000f)
@@ -162,7 +167,7 @@ public static class LevelDataWindow
                 floorMarked = true;
             }
             sb.AppendLine(string.Format("  {0,4:F0}s | {1,3:F0}% | {2,4} | {3,7} | {4}",
-                t, hpLeft, price, price + coinTotal, note));
+                t, hpRatio * 100f, price, price + coinTotal, note));
         }
         sb.AppendLine("==========================================");
         return sb.ToString();
@@ -815,10 +820,10 @@ public static class LevelDataWindow
         //    为什么必需：关卡场景里的 PlayerInventory / SlimePathFollow 是 Player.prefab / Slime.prefab 的
         //      stripped 实例组件，落盘值 = prefab 资产值 + 该实例的 m_Modifications 覆盖表；
         //      LevelBuilder 直接改 C# 字段绕过了 Inspector 的 SerializedObject 通道，不进覆盖表就没救
-        //      （06_问题.md #24 的 stoneCount 就是这个坑，症状是"改 JSON 不生效"；
-        //        判据与场景 YAML 证据见 _workflow\_审计_prefab实例字段丢失.md §1/§3）。
+        //      （内部问题跟踪里记过的那个 stoneCount 落盘坑就是这个，症状是"改 JSON 不生效"；
+        //        判据与场景 YAML 证据见内部审计记录）。
         //      · inventory  = 本关发放哪些物品（meta.itemGrants）← 本次修的就是它
-        //      · pathFollow = 开局引导石颗数（meta.startStones）← #24 本体，同一个坑
+        //      · pathFollow = 开局引导石颗数（meta.startStones）← 同一个坑的本体
         //      ⚠ 必须放在 AutoWireMenu 之后：AutoWire 也会写实例字段（它自己会做记录），
         //        这里要同步的是重建结束时的最终值。
         SyncPrefabOverride(builder.inventory, "itemGrants");
@@ -835,7 +840,7 @@ public static class LevelDataWindow
     /// <summary>
     /// 把"代码刚写进组件字段"的值同步到 prefab 实例的覆盖表里（两步：先清旧覆盖，再记当前值）。
     ///
-    /// 为什么必须做（`06_问题.md` #24 同款坑，别再踩第三次）：
+    /// 为什么必须做（同款坑已经踩过两次，别再踩第三次）：
     ///   关卡场景里的 PlayerInventory / SlimePathFollow 是 Player.prefab / Slime.prefab 的
     ///   **stripped 实例组件**（YAML 里没有字段体，只有 m_PrefabInstance + m_Script 这类头部）。
     ///   它的落盘值 = prefab 资产值 + 该实例 m_Modifications 覆盖表里的覆盖项。
@@ -844,7 +849,7 @@ public static class LevelDataWindow
     ///   Unity 文档也写明：不调 RecordPrefabInstancePropertyModifications，对实例的改动会丢失
     ///   （docs.unity3d.com/2022.3/Documentation/ScriptReference/PrefabUtility.RecordPrefabInstancePropertyModifications.html）。
     ///   `LevelBuilder.Build` 是运行时脚本（不引用 UnityEditor）⇒ 登记这一步只能放在编辑器侧这里。
-    ///   判据与场景 YAML 证据见 项目内部审计记录 §1 / §3。
+    ///   判据与场景 YAML 证据见内部审计记录。
     ///
     /// 为什么要"先清"：
     ///   RecordPrefabInstancePropertyModifications 只负责把【当前的差异】记进覆盖表，不保证清旧账。
@@ -1205,7 +1210,7 @@ public static class LevelDataWindow
     ///               通道内 2 枚金币，想拿必须放下史莱姆 + 放引导石
     ///   F 之字高台  x 164→176，三层（顶面 2.5 / 5.0 / 7.5）**上-左-上**，方向反复
     ///
-    /// 数值自洽（parTime 60）：满格 600 元 ｜ 掉血 0.833 血/秒 ｜ 1 血 6 元 ｜ 1 枚金币 = 2 秒
+    /// 数值自洽（parTime 60）：血条 120 点 ｜ 掉血 1.0 点/秒 ｜ 1 点 5 元 ｜ 满格 600 元 ｜ 1 枚金币 = 2 秒
     ///   金币 12 枚 = 120 元 = 目标（2 × parTime）✅
     ///   关卡长 210 格；纯跑 32 秒 + 障碍操作 ≈ 47 秒
     ///   冲刺（40 秒不捡）= 400 元  vs  全收集（50 秒）= 470 元  → 差 17.5% ✅ 落在 15~35%
@@ -1442,19 +1447,45 @@ public static class LevelDataWindow
                   "，Build Settings 已按 MainMenu → LevelSelect → Level0 → Level1 → Level2 → Level3 排好。");
     }
 
+    /// <summary>
+    /// 找一块"能写中文的 TMP 字体"给壁画占位文字用（原来只认名字里带 "SimHei" 的那份）。
+    /// 判定顺序（全部只读、不改任何资源）：
+    ///   ① 路径里含【我们配置的 SDF 资源基名】（`SlimeDemoSetup.chineseSdfAssetName`，如 "SourceHanSansSC-Medium SDF"）
+    ///      —— 就是工程自己生成的那份，首选；
+    ///   ② 路径里含【字体文件基名】（`SlimeDemoSetup.chineseFontBaseName`）—— 覆盖"资源被改过名/只留了 ttf 名"的情况；
+    ///   ③ 任何一个**真的能画出中文**的 TMP 字体：用 TMP 自己的字形查询 `HasCharacter('中')` 当探针
+    ///      （动态图集查源字体、静态图集查字形表）—— 比"按名字猜"可靠；
+    ///   ④ 都找不到才退回"第一个碰到的 TMP 字体"（保持原来的兜底行为，绝不返回 null 之外的新语义）。
+    /// </summary>
     static TMP_FontAsset FindMuralFont()
     {
         string[] guids = AssetDatabase.FindAssets("t:TMP_FontAsset");
-        TMP_FontAsset fallback = null;
+        TMP_FontAsset configured = null;   // ① / ②
+        TMP_FontAsset hasChinese = null;   // ③
+        TMP_FontAsset first = null;        // ④
         for (int i = 0; i < guids.Length; i++)
         {
             string p = AssetDatabase.GUIDToAssetPath(guids[i]);
             TMP_FontAsset f = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(p);
             if (f == null) continue;
-            if (p.IndexOf("SimHei", StringComparison.OrdinalIgnoreCase) >= 0) return f;
-            if (fallback == null) fallback = f;
+            if (first == null) first = f;
+            if (hasChinese == null && HasChineseGlyph(f)) hasChinese = f;
+            if (configured == null &&
+                (p.IndexOf(SlimeDemoSetup.chineseSdfAssetName, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 p.IndexOf(SlimeDemoSetup.chineseFontBaseName, StringComparison.OrdinalIgnoreCase) >= 0))
+                configured = f;
+            if (configured != null && hasChinese != null) break;   // 两个都拿到了，不必再扫
         }
-        return fallback;
+        if (configured != null) return configured;
+        if (hasChinese != null) return hasChinese;
+        return first;
+    }
+
+    /// <summary>这个 TMP 字体能不能画出中文（拿"中"当探针）。动态图集查源字体、静态图集查字形表；
+    ///  只读查询，不会往图集里加字（tryAddCharacter 保持默认 false）。</summary>
+    static bool HasChineseGlyph(TMP_FontAsset f)
+    {
+        return f != null && f.HasCharacter('中');
     }
 
     /// <summary>
@@ -1793,6 +1824,7 @@ public class LevelDataEditorWindow : EditorWindow
         }
 
         int barMax = m.barMaxOverride > 0 ? m.barMaxOverride : LevelManager.BarMaxFor(m.parTime);
+        int barPoints = LevelManager.BarPointsFor(m.parTime);
         float drain = LevelManager.DrainRateFor(m.parTime);
         int coinTarget = Mathf.RoundToInt(2f * m.parTime);
         int baseline = Mathf.RoundToInt(barMax * LevelManager.parRemain) + coinTotal;
@@ -1803,8 +1835,8 @@ public class LevelDataEditorWindow : EditorWindow
         EditorGUILayout.LabelField(string.Format(
             "地形 {0} ｜ 物件 {1} ｜ 路牌 {2}", _data.terrain.Length, _data.objects.Length, _data.murals.Length));
         EditorGUILayout.LabelField(string.Format(
-            "售价条满格 {0} 元 ｜ 掉血 {1:0.###} 血/秒 ｜ 1 点血 = {2:0.##} 元",
-            barMax, drain, LevelManager.BarMaxFor(m.parTime) / 100f));
+            "售价条满格 {0} 元 ｜ 血条 {1} 点（= 2 × parTime）｜ 掉血 {2:0.###} 点/秒 ｜ 1 点 = {3:0.##} 元",
+            barMax, barPoints, drain, LevelManager.moneyPerHp));
         EditorGUILayout.LabelField(string.Format(
             "金币总额 {0} 元 ｜ 目标 ≈ {1} 元（= 2 × parTime）  {2}",
             coinTotal, coinTarget, coinOk ? "✅" : "⚠ 偏离目标"));

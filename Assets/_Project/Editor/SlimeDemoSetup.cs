@@ -31,6 +31,37 @@ public static class SlimeDemoSetup
     const int FirstUserLayer = 6;
     const string TestScenePath = Root + "/Scenes/Test_Auto.unity";
 
+    // ======================= 中文字体（开源优先） =======================
+    // 用户已拍板：把有版权的 SimHei（中易黑体）换成开源「思源黑体 / Noto Sans SC」（OFL 1.1）。
+    // 约定：字体文件放 `Art/UI/<chineseFontBaseName>.ttf`；TMP 现做的资源叫 `<chineseSdfAssetName>.asset`。
+    // ⚠ 名字全部走 public static 字段（工程铁律：字面量不写死在方法里）—— 换字体只改这几个值 + 重跑生成。
+    /// <summary>中文字体【文件基名】（不带 .ttf）：工程内 `Art/UI/<该名>.ttf`，也是从系统字体拷进来的目标名。</summary>
+    public static string chineseFontBaseName = "SourceHanSansSC-Medium";
+    /// <summary>TMP 字体资源基名（不带 .asset）：`Art/UI/<该名>.asset`。</summary>
+    public static string chineseSdfAssetName = "SourceHanSansSC-Medium SDF";
+    /// <summary>图集贴图名（生成时写进资源里，纯命名用）。</summary>
+    public static string chineseAtlasName = "SourceHanSansSC-Medium Atlas";
+    /// <summary>系统字体候选（**开源优先**，按数组顺序试；最后几条是"许可非 OFL"的兜底，命中会在日志里明确警告）。
+    ///  ① 工程内 `Art/UI/<基名>.ttf` 永远排在最前面（见 EnsureChineseFont，不在本数组里）。</summary>
+    public static string[] chineseFontCandidates = new string[]
+    {
+        "C:/Windows/Fonts/SourceHanSansSC-Medium.ttf",     // 思源黑体，OFL 1.1 —— 发布用这个
+        "C:/Windows/Fonts/NotoSansSC-VF.ttf",              // Noto Sans SC 可变字体，OFL 1.1（TMP 支持不稳，只作备选）
+        "C:/Windows/Fonts/HarmonyOS_Sans_SC_Regular.ttf",  // 华为鸿蒙字体：可免费商用，但【不是 OFL】⇒ 兜底
+        // ⚠⚠ 下面两条是【版权字体】兜底（中易黑体 / 微软雅黑）：只够本机开发调试，
+        //      一旦用到，日志会警告 —— 发布前必须换成上面的 OFL 字体！
+        "C:/Windows/Fonts/simhei.ttf",
+        "C:/Windows/Fonts/msyh.ttc",
+    };
+    /// <summary>命中这些文件名的候选 = "许可非 OFL"的兜底 ⇒ 生成时在日志里明确警告。</summary>
+    public static string[] chineseNonOflFonts = new string[]
+    {
+        "HarmonyOS_Sans_SC_Regular.ttf", "simhei.ttf", "msyh.ttc"
+    };
+    /// <summary>新生成的中文 TMP 字体用哪种图集模式。默认 Dynamic（CJK 字形太多，Static 图集塞不下/巨大）。
+    ///  ⚠ 若改成 Static，必须先把要用的字形烘进图集，否则 UI 全是方块。</summary>
+    public static AtlasPopulationMode chineseFontAtlasMode = AtlasPopulationMode.Dynamic;
+
     static readonly string[] LayerNames =
     {
         "Player", "Slime", "CarriedSlime", "Ground", "Platform",
@@ -1315,7 +1346,8 @@ public static class SlimeDemoSetup
         {
             // 宁可不建，也不要建出一屏方块：菜单场景几乎全是中文。
             Debug.LogError("[呆呆史莱姆] 中文 TMP 字体不可用，已中止生成菜单场景（否则中文会全是方块）。" +
-                           "先把 Assets/_Project/Art/UI/SimHei SDF.asset 修好再来。");
+                           "先把 " + Root + "/Art/UI/" + chineseSdfAssetName + ".asset（或 " + chineseFontBaseName +
+                           ".ttf）修好再来。");
             return;
         }
 
@@ -2174,10 +2206,11 @@ public static class SlimeDemoSetup
         Debug.Log("[呆呆史莱姆] 已导入 TextMeshPro Essential Resources");
     }
 
-    /// <summary>从系统字体生成一个支持中文的 TMP 动态字体资源（只做一次）。失败则返回 null，UI 用默认字体。</summary>
+    /// <summary>从系统字体生成一个支持中文的 TMP 动态字体资源（只做一次）。失败则返回 null，UI 用默认字体。
+    ///  名字 / 候选清单 / 图集模式全部走 public static 字段（见类顶部「中文字体（开源优先）」段）。</summary>
     static TMP_FontAsset EnsureChineseFont()
     {
-        string assetPath = Root + "/Art/UI/SimHei SDF.asset";
+        string assetPath = Root + "/Art/UI/" + chineseSdfAssetName + ".asset";
 
         // ⚠ 必须先 Refresh 再加载：批处理会话里紧跟 ImportPackage / 建资源之后，
         //   AssetDatabase 可能还没就绪，LoadAssetAtPath 会【静默返回 null】，
@@ -2188,8 +2221,9 @@ public static class SlimeDemoSetup
         TMP_FontAsset cached = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
         if (cached == null)
         {
-            // 再兜一层：按"文件名 + 类型"搜索，防止资源被挪了位置
-            string[] guids = AssetDatabase.FindAssets("SimHei t:TMP_FontAsset");
+            // 再兜一层：按"基名 + 类型"搜索，防止资源被挪了位置
+            // （生成的资源名是 `<基名> SDF`，所以拿 `<基名>` 搜能同时命中它）
+            string[] guids = AssetDatabase.FindAssets(chineseFontBaseName + " t:TMP_FontAsset");
             for (int i = 0; i < guids.Length; i++)
             {
                 TMP_FontAsset found = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(AssetDatabase.GUIDToAssetPath(guids[i]));
@@ -2205,21 +2239,44 @@ public static class SlimeDemoSetup
 
         try
         {
-            string[] candidates = { "C:/Windows/Fonts/simhei.ttf", "C:/Windows/Fonts/Deng.ttf", "C:/Windows/Fonts/msyh.ttc" };
-            string source = null;
-            foreach (string c in candidates) { if (File.Exists(c)) { source = c; break; } }
-            if (source == null)
-            {
-                Debug.LogWarning("[呆呆史莱姆] 系统里没找到中文字体，UI 里的中文会显示成方块");
-                return null;
-            }
-
             string uiDir = Root + "/Art/UI";
             if (!Directory.Exists(uiDir)) Directory.CreateDirectory(uiDir);
 
-            string fontPath = uiDir + "/SimHei.ttf";
-            if (!File.Exists(fontPath)) File.Copy(source, fontPath, true);
-            AssetDatabase.ImportAsset(fontPath, ImportAssetOptions.ForceUpdate);
+            // ① 工程内已经放好 `<基名>.ttf`（干净的 clone / 手工放了开源字体）→ 直接用它
+            string fontPath = uiDir + "/" + chineseFontBaseName + ".ttf";
+            string source = File.Exists(fontPath) ? fontPath : null;
+
+            // ②③④… 系统字体候选：开源优先，顺序见 chineseFontCandidates
+            if (source == null)
+            {
+                for (int i = 0; i < chineseFontCandidates.Length; i++)
+                {
+                    if (File.Exists(chineseFontCandidates[i])) { source = chineseFontCandidates[i]; break; }
+                }
+            }
+            if (source == null)
+            {
+                Debug.LogWarning("[呆呆史莱姆] 系统里没找到中文字体，UI 里的中文会显示成方块。请把 " +
+                                 chineseFontBaseName + ".ttf（建议思源黑体 SourceHanSansSC-Medium，OFL 1.1）放到 " +
+                                 uiDir + "/ 再重跑。");
+                return null;
+            }
+
+            // ⚠ 许可提醒：候选末尾那几条是"许可非 OFL"的兜底（HarmonyOS / 中易黑体 / 微软雅黑），
+            //   一旦用到就必须在日志里喊明白 —— 它只够本机开发，发布前要换成 OFL 字体。
+            string sourceName = Path.GetFileName(source);
+            if (IsNonOflFont(sourceName))
+            {
+                Debug.LogWarning("[呆呆史莱姆] ⚠ 本机没有开源中文字体，正在用【许可非 OFL 的兜底字体】" + sourceName +
+                                 " 生成 UI 字体 —— 只够本机开发调试：【发布前必须换成 " + chineseFontBaseName +
+                                 ".ttf（OFL 1.1，可再分发）】。");
+            }
+
+            if (!string.Equals(source, fontPath, System.StringComparison.OrdinalIgnoreCase))
+            {
+                File.Copy(source, fontPath, true);
+                AssetDatabase.ImportAsset(fontPath, ImportAssetOptions.ForceUpdate);
+            }
 
             Font font = AssetDatabase.LoadAssetAtPath<Font>(fontPath);
             if (font == null)
@@ -2234,24 +2291,28 @@ public static class SlimeDemoSetup
                 Debug.LogWarning("[呆呆史莱姆] 创建 TMP 字体资源失败");
                 return null;
             }
+            // 图集模式：TMP 3.0.7 的单参重载内部就是 Dynamic（TMP_FontAsset.cs:434 把 mode 传成 Dynamic），
+            // 这里再按 public 字段显式写一次，便于以后调（CJK 字形太多，Static 图集塞不下/巨大）。
+            fontAsset.atlasPopulationMode = chineseFontAtlasMode;
 
-            fontAsset.name = "SimHei SDF";
+            fontAsset.name = chineseSdfAssetName;
             AssetDatabase.CreateAsset(fontAsset, assetPath);
 
             if (fontAsset.atlasTextures != null && fontAsset.atlasTextures.Length > 0 && fontAsset.atlasTextures[0] != null)
             {
-                fontAsset.atlasTextures[0].name = "SimHei Atlas";
+                fontAsset.atlasTextures[0].name = chineseAtlasName;
                 AssetDatabase.AddObjectToAsset(fontAsset.atlasTextures[0], fontAsset);
             }
             if (fontAsset.material != null)
             {
-                fontAsset.material.name = "SimHei Atlas Material";
+                fontAsset.material.name = chineseAtlasName + " Material";
                 AssetDatabase.AddObjectToAsset(fontAsset.material, fontAsset);
             }
 
             AssetDatabase.SaveAssets();
             AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
-            Debug.Log("[呆呆史莱姆] 已生成中文 TMP 字体资源：" + assetPath);
+            Debug.Log("[呆呆史莱姆] 已生成中文 TMP 字体资源：" + assetPath +
+                      "（来源 " + sourceName + "，图集模式 " + fontAsset.atlasPopulationMode + "）");
 
             TMP_FontAsset created = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(assetPath);
             EnsureDefaultTmpFont(created);
@@ -2262,6 +2323,17 @@ public static class SlimeDemoSetup
             Debug.LogWarning("[呆呆史莱姆] 生成中文字体出错，UI 会退回默认字体（中文可能是方块）：" + e.Message);
             return null;
         }
+    }
+
+    /// <summary>文件名是否属于"许可非 OFL"的兜底字体（HarmonyOS / 中易黑体 / 微软雅黑）——只用于日志警告。</summary>
+    static bool IsNonOflFont(string fileName)
+    {
+        if (string.IsNullOrEmpty(fileName)) return false;
+        for (int i = 0; i < chineseNonOflFonts.Length; i++)
+        {
+            if (string.Equals(chineseNonOflFonts[i], fileName, System.StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
     }
 
     /// <summary>生成一张纯色占位图并导入成 Sprite（用于 UI 图标）。</summary>
@@ -2803,10 +2875,19 @@ public static class SlimeDemoSetup
         {
             if (n.Contains("groundcheck"))
             {
-                Transform c = FindChildByName(owner.transform, "GroundCheck");
-                if (c != null) return c;
-                if (idx.slime != null) return FindChildByName(idx.slime.transform, "GroundCheck");
-                return null;
+                // ★ 探针接线修复（根因）：groundCheck 只允许用【宿主自己的子物体】。
+                //   这里以前还有一条兜底 `if (idx.slime != null) return FindChildByName(idx.slime.transform, "GroundCheck");`
+                //   —— 而 Player.prefab 根本没有子物体（整个 prefab 只有 Player 一个 GameObject）
+                //   ⇒ 玩家的 PlayerController.groundCheck 会被接到【史莱姆的脚底探针】上。
+                //   后果（跳不起来问题的定位、用户实测日志证明）：史莱姆跟随时它在玩家脚边 ⇒ 探针碰得到地 ⇒ 能跳；
+                //   一举过头顶 ⇒ 探针悬空 ⇒ IsGrounded 恒 false ⇒ "举着史莱姆就跳不起来"。
+                //   宿主自己没有 GroundCheck 子物体时【返回 null = 什么都不接】，理由：
+                //     · 三个控制器（PlayerController / SlimeController / Enemy）都对 null 自带兜底
+                //       （用自己碰撞体底部 + 偏移，见 PlayerController.UpdateGrounded / SlimeController / Enemy.FootY），
+                //       而这条兜底路径是既有且被验证过的（Level2 的 groundCheck 一直是 0，一直走它）；
+                //     · "新建一个子物体"要改场景层级（prefab 实例的 m_AddedGameObjects）、重复接线可能造重复子物体、
+                //       还得再决定偏移量（玩家 -0.6 / 史莱姆 -0.45 各不相同），风险都比 null 大得多。
+                return FindChildByName(owner.transform, "GroundCheck");
             }
             if (n.Contains("carrypoint"))
             {

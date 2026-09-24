@@ -62,7 +62,8 @@ public class LevelManager : MonoBehaviour
     public int SlimeMaxHealth { get { return slime != null ? slime.MaxHealth : 0; } }
     public float HealthRatio { get { return slime != null ? slime.HealthRatio : 0f; } }
 
-    /// <summary>售价条满格 = 本关理论最高售价。规则：10 × parTime（= 2 × parTime × drainPerSecond）。</summary>
+    /// <summary>售价条满格 = 本关理论最高售价 = 10 × parTime（= 2 × parTime × drainPerSecond
+    /// = 血条点数 × 每点单价）。</summary>
     public int BarMax
     {
         get
@@ -125,10 +126,28 @@ public class LevelManager : MonoBehaviour
     // 所有关卡共用。改这里 = 改全局手感。
     // 之所以用 public static 字段而不是 const：既满足"数值不写死在方法里"，又不会被每关 JSON 固化住
     // （MonoBehaviour 的序列化字段会盖掉代码默认值，这个坑踩过两次）。
+    //
+    // ---- 血条口径（一眼可算）----
+    //   血条 = 2 × parTime 点 ｜ 1 点 = 1 秒 = moneyPerHp 元 ｜ 掉血 = hpPerSecond 点/秒
+    //   ⇒ 每秒掉钱 = hpPerSecond × moneyPerHp = 5 元（全局恒等，与关卡长短无关）；
+    //   ⇒ 关卡越长血条越长（2×parTime 点），所以"掉到一半"的时间永远正好是 parTime 秒；
+    //   ⇒ 钱 = (1 − t/(2·parTime)) × 2·parTime × 5 = 10·parTime − 5t —— 与旧口径（血条恒 100 点、
+    //     每点 parTime/10 元、掉 50/parTime 点每秒）**逐格等值**，只是把 parTime 从推导里挪到了血条长度上。
 
-    /// <summary>每秒掉多少钱。全局统一：改这一个数，所有关卡的时间压力一起变。</summary>
-    public static float drainPerSecond = 5f;
-    /// <summary>标准时间通关时售价条应该剩多少（0~1）。0.5 = 正好掉一半。</summary>
+    /// <summary>血条每秒掉多少「点」。口径：1 点 = 1 秒 = moneyPerHp 元。
+    /// 与 parTime 无关 —— 掉多快是常数，关卡长短只决定血条总长度（见 BarPointsFor）。</summary>
+    public static float hpPerSecond = 1f;
+    /// <summary>1 点血值多少钱。全局统一常数，不随关卡漂（旧口径是 parTime/10，心算得先知道 parTime）。</summary>
+    public static float moneyPerHp = 5f;
+    /// <summary>每秒掉多少钱 = hpPerSecond × moneyPerHp（恒 5）。
+    /// **派生量**：改上面任意一个它自动跟 —— 不要再单独改它，否则血条与钱就不同源了。</summary>
+    public static float drainPerSecond { get { return hpPerSecond * moneyPerHp; } }
+    /// <summary>兜底标准时间：拿不到 LevelManager（测试场景 / 没接线的预制体）时，
+    /// 用它的血条点数当 maxHealth。存在的意义是"方法里不写死一个 100"。</summary>
+    public static float fallbackParTime = 50f;
+    /// <summary>标准时间通关时售价条应该剩多少（0~1）。0.5 = 正好掉一半。
+    /// ⚠ 这是**比例**，与血条点数无关：血条 2×parTime 点、掉 hpPerSecond 点/秒 ⇒
+    /// parTime 秒时剩 1 − hpPerSecond×parTime ÷ (2×parTime×hpPerSecond) = 0.5（与关卡长短、与单位口径都无关）。</summary>
     public static float parRemain = 0.5f;
     /// <summary>时间掉血的下限（0~1）。**时间不会饿死史莱姆，危险会。**</summary>
     public static float barFloor = 0.25f;
@@ -138,19 +157,31 @@ public class LevelManager : MonoBehaviour
     // 保证代码里跑的、和文档里算的，永远是同一个公式。
 
     /// <summary>
-    /// 每秒掉多少血（血条单位 0~maxHealth）。
-    /// 由"标准时间时血条剩 parRemain"反推：drainRate × parTime = (1 − parRemain) × 100。
-    /// parTime = 50 秒时正好是 1.0 血/秒。
+    /// 每秒掉多少血（单位 = 血条点/秒）。
+    /// **与 parTime 无关**：血条本身就是按 2×parTime 点长的（见 BarPointsFor），
+    /// 所以掉血速度是常量 hpPerSecond = 1 点/秒，关卡长短只改变血条总长度。
+    /// （旧口径写成 (1−parRemain)×100/parTime 点/秒，parTime 被约掉才碰巧等价 ——
+    ///  现在把"1 点 = 1 秒"写成显式常量，不再靠约分。）
+    /// 于是 parTime 秒时正好剩 parRemain = 50%（血条掉一半），与关卡长短无关。
     /// </summary>
     public static float DrainRateFor(float parTime)
     {
-        if (parTime <= 0.01f) return 0f;
-        return (1f - Mathf.Clamp01(parRemain)) * 100f / parTime;
+        if (parTime <= 0.01f) return 0f;      // 非法 parTime：不掉血（保持旧口径的退化行为）
+        return hpPerSecond;
     }
 
     public float DrainRate { get { return DrainRateFor(parTime); } }
 
-    /// <summary>售价条满格的通用算法（与 BarMax 同一套规则，供编辑器自检用）。</summary>
+    /// <summary>本关血条有多少点 = 2 × parTime × hpPerSecond（新口径：血条长短跟着标准时间走）。
+    /// 这是**血条点数唯一的算法**：SlimeController.maxHealth 由它写，售价公式与编辑器显示也都读它。
+    /// parTime 取 10 的倍数时恒为整数（例：parTime 80/60/50/40 ⇒ 160/120/100/80 点）。</summary>
+    public static int BarPointsFor(float parTime)
+    {
+        return Mathf.RoundToInt(2f * parTime * hpPerSecond);
+    }
+
+    /// <summary>售价条满格的通用算法（与 BarMax 同一套规则，供编辑器自检用）。
+    /// = 2 × parTime × drainPerSecond = 10 × parTime 元，也就是「血条点数 × 每点单价」。</summary>
     public static int BarMaxFor(float parTime)
     {
         return Mathf.RoundToInt(2f * parTime * drainPerSecond);
@@ -168,15 +199,18 @@ public class LevelManager : MonoBehaviour
         return drainPerSecond > 0.0001f ? coinValue / drainPerSecond : 999f;
     }
 
-    /// <summary>给定用时和血量比例算售价。与运行时 CurrentPrice 同源。</summary>
+    /// <summary>给定用时和血量比例算售价。与运行时 CurrentPrice 同源。
+    /// 全在**点数域**里算：血条 = BarPointsFor(parTime) 点、每点 moneyPerHp 元
+    /// ⇒ 钱 = 满格 × 剩余点数 ÷ 总点数。**这里不再有隐含的「血条恒 100 点」**。</summary>
     public static int PriceAt(float parTime, float elapsed, float healthRatio)
     {
         int barMax = BarMaxFor(parTime);
+        float points = Mathf.Max(1f, BarPointsFor(parTime));     // 防御：parTime 非法时别除以 0
         float drain = DrainRateFor(parTime);
-        float hp = Mathf.Clamp01(healthRatio) * 100f - drain * Mathf.Max(0f, elapsed);
-        float floor = Mathf.Clamp01(barFloor) * 100f;
+        float hp = Mathf.Clamp01(healthRatio) * points - drain * Mathf.Max(0f, elapsed);
+        float floor = Mathf.Clamp01(barFloor) * points;
         hp = Mathf.Max(floor, hp);
-        return Mathf.RoundToInt(barMax * Mathf.Clamp01(hp / 100f));
+        return Mathf.RoundToInt(barMax * Mathf.Clamp01(hp / points));
     }
 
     private bool levelFailedFlag;

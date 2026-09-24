@@ -100,6 +100,10 @@ public class LevelBuilder : MonoBehaviour
 
     [Header("数值默认值（物件数据里没写时用）")]
     public int defaultCoinValue = 10;
+    // ⚠ 下面三个伤害 / 回血量的口径 = **满条百分比**（不是血条点数）：
+    //   血条总长是每关算出来的（LevelManager.BarPointsFor = 2 × parTime 点），
+    //   所以 JSON 里的数字必须与"本条有多长"无关 —— 15 = 掉满条的 15%，25 = 回满条的 25%。
+    //   换算只发生在 SlimeController.TakeDamage / Heal 里（PointsFromBarPercent），数值本身不许动。
     public int defaultOrbHeal = 25;
     public int defaultSpikeDamage = 15;
     public int defaultEnemyDamage = 15;
@@ -107,7 +111,9 @@ public class LevelBuilder : MonoBehaviour
     [Header("壁画路牌（占位阶段）")]
     [Tooltip("勾选后：在牌面上写出这块牌子以后该画什么。美术做完后关掉即可，不用改数据")]
     public bool showMuralLabels = true;
-    [Tooltip("占位文字用的字体（拖 SimHei SDF）")]
+    [Tooltip("占位文字用的字体（拖中文 SDF 字体：工程内 Art/UI 下的 `SourceHanSansSC-Medium SDF` —— " +
+             "开源思源黑体，OFL 1.1）。资源名由 Editor 侧 SlimeDemoSetup.chineseSdfAssetName 决定，" +
+             "换字体只改那边几个字段；本脚本是运行时脚本，所以这里只写说明、不引用那个 Editor 类。")]
     public TMP_FontAsset muralFont;
     public float muralFontSize = 0.42f;
     public Color muralBoardColor = new Color(0.16f, 0.14f, 0.25f, 0.92f);
@@ -237,10 +243,17 @@ public class LevelBuilder : MonoBehaviour
             levelManager.coinTotalInLevel = total;
         }
 
+        // 5.5) 史莱姆的血条点数 = LevelManager.BarPointsFor(parTime)（= 2 × parTime 点）。
+        //      史莱姆得先拿得到 levelManager 才推得出点数（点数的唯一真相源在 LevelManager，不在
+        //      场景/预制体上序列化的 maxHealth）⇒ 这里补一次引用。幂等：已经拖好就不动。
+        //      注意 AutoWire（SlimeDemoSetup）也会按类型接这一格，这里只是"接线晚一步"的兜底。
+        if (slime != null && levelManager != null && slime.levelManager == null)
+            slime.levelManager = levelManager;
+
         // 6) 引导石数量：数据说了算（各关数据现在都是 3，所以表现就是"每关开局三颗"）
         //    ⚠ pathFollow 在关卡场景里是 Slime.prefab 的【实例组件】：这里只写内存里的值，
         //      必须由编辑器侧的 LevelDataWindow.RebuildScene 登记 prefab 覆盖才会落盘
-        //      （06_问题.md #24 的 stoneCount 就是漏了这一步，表现是"改 JSON 不生效"）。
+        //      （内部问题跟踪里记过的 stoneCount 坑就是漏了这一步，表现是"改 JSON 不生效"）。
         if (pathFollow != null)
             pathFollow.stoneCount = Mathf.Max(0, data.meta.startStones);
 
@@ -279,7 +292,7 @@ public class LevelBuilder : MonoBehaviour
         //    ⚠ 而且关卡场景里的 PlayerInventory 是 Player.prefab 的【实例组件】（stripped）：
         //      它的落盘值 = prefab 资产值 + 该实例的 m_Modifications 覆盖表。代码直接改字段绕过了
         //      Inspector 的 SerializedObject 通道，不进覆盖表 ⇒ SaveScene 时被静默丢弃
-        //      （这就是 06_问题.md #24 的 stoneCount 同款坑，也正是 #25 预言的"以后再加一条实例写入就会踩"）。
+        //      （这就是 stoneCount 那类同款坑，也早有预警："以后再加一条实例写入就会踩"）。
         //      登记覆盖那一步必须调 PrefabUtility.RecordPrefabInstancePropertyModifications，
         //      而本文件是【运行时脚本、不引用 UnityEditor】⇒ 放在编辑器侧的
         //      LevelDataWindow.RebuildScene（那里已经按类型补好了 inventory 引用）。

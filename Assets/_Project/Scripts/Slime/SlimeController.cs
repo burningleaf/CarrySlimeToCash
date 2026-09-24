@@ -40,7 +40,13 @@ public class SlimeController : MonoBehaviour
     public ParticleSystem sprintTrail;
 
     [Header("血量（= 售价，会随时间下降）")]
-    // 必须用 float：掉血速率可能是 0.6 血/秒这种小数，用 int 会永远掉不动。
+    // 血量单位 = **血条点数**。点数的唯一真相源是 LevelManager.BarPointsFor(parTime) = 2 × parTime 点，
+    // 运行时由 SyncBarPointsToParTime() 写入（Awake / Start / 每次读血量之前），早于任何读取。
+    // ⚠ 下面这两个值只是"编辑器占位"：场景 / 预制体上序列化的 maxHealth **不算数**
+    //   （踩过一类坑（内部问题跟踪里记过）：序列化字段会盖掉代码里的默认值 ⇒ 只改字段默认值 / 只在 Inspector 里填，
+    //    都会静默失效），运行时一律被 SyncBarPointsToParTime 覆盖。
+    // 必须用 float：掉血按 Time.deltaTime 累计（hpPerSecond × dt 一般是小数），用 int 会永远掉不动；
+    // currentHealth 还会按"满条百分比"换算（25% → 0.25 × maxHealth），也别丢精度。
     public float maxHealth = 100f;
     public float currentHealth = 100f;
     [Tooltip("受击后的无敌帧时长，避免连续掉血")]
@@ -261,9 +267,14 @@ public class SlimeController : MonoBehaviour
         if (maxDropHeight < ledgeCheckDistance) maxDropHeight = ledgeCheckDistance + 4f;
         if (acceleration <= 0f) acceleration = followSpeed * 10f;
 
-        // 血量字段从 int 改成 float 时，老场景里存的值可能被重置成 0，兜一下
-        if (maxHealth <= 0f) maxHealth = 100f;
+        // 血量字段从 int 改成 float 时，老场景里存的值可能被重置成 0，兜一下。
+        // 兜底值也走新口径（= 血条点数），不在方法里写死一个 100。
+        if (maxHealth <= 0f) maxHealth = LevelManager.BarPointsFor(LevelManager.fallbackParTime);
         currentHealth = Mathf.Clamp(currentHealth <= 0f ? maxHealth : currentHealth, 0f, maxHealth);
+
+        // ★ 血条点数对齐：maxHealth = LevelManager.BarPointsFor(本关 parTime) = 2 × parTime 点。
+        //   放在 Awake 末尾 —— 早于任何读取（Update / 受伤 / UI），且此时场景上的 levelManager 已经可用。
+        SyncBarPointsToParTime();
         _state = SlimeState.Follow;
         _mode = SlimeState.Follow;
         gameObject.layer = slimeLayer;
@@ -286,6 +297,15 @@ public class SlimeController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// 再对齐一次血条点数。Start 一定在所有 Awake 之后 —— 万一 levelManager 是别的脚本在 Awake 里
+    /// 才接上的（Awake 顺序不确定），这里也能补上。SyncBarPointsToParTime 幂等，重复调用没有副作用。
+    /// </summary>
+    void Start()
+    {
+        SyncBarPointsToParTime();
+    }
+
     void Update()
     {
         _wobbleTime += Time.deltaTime;
@@ -302,13 +322,16 @@ public class SlimeController : MonoBehaviour
     /// <summary>
     /// 售价随时间下降：史莱姆是货物，运久了会蔫。
     /// 掉到 maxHealth × LevelManager.barFloor 就【停住】—— 时间不会饿死史莱姆，危险会。
-    /// 掉血速率不在这里手填，而是由 LevelManager 按本关标准时间算出来
-    /// （全局统一"每秒掉 5 元"，所以关卡越长、血条掉得越慢）。
+    /// 掉血速率不在这里手填：全局口径是 **1 点/秒 = 5 元/秒**（LevelManager.hpPerSecond × moneyPerHp），
+    /// 血条总长按本关标准时间给（2 × parTime 点）—— 所以关卡越长，血条越长、掉一半的时间越久。
+    /// ⚠ maxHealth 与 barFloor 都是**比例**的载体 ⇒ 死亡判定 / 掉血下限 / 售价全都只看比例，不看点数单位。
     /// </summary>
     private void TickPriceDrain()
     {
         if (_state == SlimeState.Dead) return;
         if (levelManager == null) return;
+
+        SyncBarPointsToParTime();          // 血条点数 = 2×parTime（唯一真相源），掉血之前先对齐
 
         float rate = levelManager.DrainRate;
         if (rate <= 0f) return;
@@ -797,14 +820,46 @@ public class SlimeController : MonoBehaviour
     }
 
     // ---------------- 血量 ----------------
-    /// <summary>受到危险区 / 怪物的伤害。无敌帧内会被忽略。</summary>
+    /// <summary>
+    /// 血条点数的**唯一真相源** = LevelManager.BarPointsFor(本关 parTime) = 2 × parTime 点。
+    /// ⚠ 场景 / 预制体上序列化的 maxHealth **不算数**（同一类坑：序列化字段会盖掉
+    ///   代码默认值 ⇒ 只改字段默认值、或只在 Inspector 里填，都会静默失效）⇒ 运行时一律由这里覆盖。
+    /// 为什么只能"运行时再对齐"：parTime 是每关 JSON 说了算的，代码里在装上 LevelManager 之前根本推不出点数。
+    /// 覆盖方式 = **比例守恒**（按旧点数上的血量比例缩放）⇒ 售价只看 HealthRatio，所以钱一分不差。
+    /// 幂等：点数已经相等就直接返回（例：parTime = 50 ⇒ 100 点，与旧口径的 100 点相同 ⇒ 什么都不动）。
+    /// 调用点：Awake / Start / 每次掉血 Tick / 受击 / 回血，保证早于任何读取。
+    /// </summary>
+    private void SyncBarPointsToParTime()
+    {
+        if (levelManager == null) return;                                  // 还没接线 ⇒ 下次读之前再来
+        float points = LevelManager.BarPointsFor(levelManager.parTime);
+        if (points <= 0f || Mathf.Approximately(points, maxHealth)) return;
+        float ratio = maxHealth > 0f ? Mathf.Clamp01(currentHealth / maxHealth) : 1f;
+        maxHealth = points;
+        currentHealth = points * ratio;
+    }
+
+    /// <summary>
+    /// 把「满条百分比」换算成血条点数 —— **全工程唯一的换算处**。
+    /// 这里的 100 是百分号的分母（0~100%），不是旧口径的"血条恒 100 点"。
+    /// </summary>
+    private float PointsFromBarPercent(int percent)
+    {
+        return percent * maxHealth / 100f;
+    }
+
+    /// <summary>受到危险区 / 怪物的伤害。无敌帧内会被忽略。
+    /// ⚠ amount 的口径 = **满条百分比**（不是血条点数）：内部按 PointsFromBarPercent 换算成点数。
+    ///    这样关卡 JSON / LevelBuilder 默认值里的 15、25 这类数字跨关卡含义一致（= 掉满条的 15% / 25%），
+    ///    数值本身一个都不用改（旧口径血条正好 100 点 ⇒ "25 点"与"25%"同值）。</summary>
     public void TakeDamage(int amount, Hazard source = null)
     {
         if (_state == SlimeState.Dead) return;
         if (amount <= 0) return;
         if (Time.time < _invincibleUntil) return;
 
-        currentHealth = Mathf.Max(0, currentHealth - amount);
+        SyncBarPointsToParTime();
+        currentHealth = Mathf.Max(0, currentHealth - PointsFromBarPercent(amount));
         _invincibleUntil = Time.time + invincibleTime;
         PlayClip(hurtClip);
 
@@ -812,13 +867,15 @@ public class SlimeController : MonoBehaviour
         else EnterScared();
     }
 
-    /// <summary>吃掉史莱姆球回血。</summary>
+    /// <summary>吃掉史莱姆球回血。
+    /// ⚠ amount 的口径 = **满条百分比**（同 TakeDamage）：25 = 回满条的 25%。</summary>
     public void Heal(int amount)
     {
         if (_state == SlimeState.Dead) return;
         if (amount <= 0) return;
 
-        currentHealth = Mathf.Min(maxHealth, currentHealth + amount);
+        SyncBarPointsToParTime();
+        currentHealth = Mathf.Min(maxHealth, currentHealth + PointsFromBarPercent(amount));
         PlayClip(healClip);
     }
 
