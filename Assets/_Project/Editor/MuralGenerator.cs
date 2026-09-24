@@ -414,7 +414,7 @@ public static class MuralGenerator
         MuralAdd(list, "N2", "物品栏 2：哨子（哨子在 M-R + 声波 + 2 键帽 + 底槽；挂绳环已删）", PaintItemBar2);
         MuralAdd(list, "N3", "物品栏 3：引导石（菱形在 M-R + 十字光纹 + 3 键帽 + 底槽）", PaintItemBar3);
         MuralAdd(list, "N4", "物品栏 4：预留（方框 + ? 在 M-R + 4 键帽 + 底槽，方案 4-A）", PaintItemBar4);
-        MuralAdd(list, "N5", "换物品前先放下（小孩 M-L + 开口环/落地史莱姆 M-R + 1/E 键帽）", PaintItemBar5);
+        MuralAdd(list, "N5", "哨子：按 2 切到哨子 → 按 E 让史莱姆站在原地（暂停记号 ⏸ = 定住；小孩 M-L + 暂停记号/落地史莱姆 M-R + 2/E 键帽）", PaintItemBar5);
 
         return list;
     }
@@ -807,7 +807,7 @@ public static class MuralGenerator
     }
 
     // =================================================================================
-    //  五之二、物品栏 5 张（N1~N5）：四张单格拼成一条 + 一张"换物品前先放下"
+    //  五之二、物品栏 5 张（N1~N5）：四张单格拼成一条 + 一张"哨子：按 2 切到哨子、按 E 让史莱姆站住"
     //  出处：壁画规格（方案 B）。⚠ 顺序必须与 Level0.json 的
     //  murals 数组逐条一致（H1..H13, R1, R2, N1..N5 = 20 条）。
     // =================================================================================
@@ -897,10 +897,10 @@ public static class MuralGenerator
         MuralKeyCapLeft(c, MuralGlyph4, "4 键帽（预留）");
     }
 
-    /// <summary>N5 换物品前先放下（补上现在完全没人教的强制前置：`allowSwitchWhileCarrying = false`）。
-    /// 与 H4 的区别：这里**没有地面线**、**有 `1` 键帽**、多一个"开锁"符号 ⇒ 讲的是"为了换物品而放下"。
-    /// 旧版：`1` 键帽 r=11 压住落地史莱姆；开锁环 x[21,41] 与 `E` 键帽 x[41,63] 正好相切（包围盒分离违规）。
-    /// 新版：人物住 M-L、开锁环与落地史莱姆住 M-R、**锁梁（横线）删除** —— 由"开口环"独自表达"解锁"。</summary>
+    /// <summary>N5 哨子：按 `2` 切到哨子（物品栏第 2 格 = 哨子）→ 按 `E` 让史莱姆**站在原地**（跟随 ↔ 待命）。
+    /// 画面语言：**暂停记号（两条竖杠：左 `Box(41,38,44,53)` + 右 `Box(50,38,53,53)`）= 定住/别动** —— 直读的"⏸"；
+    ///   两条杆 + 中间 5px 空隙**登记成同一个元素**（所以"元素最小尺寸 ≥6"判的是整体 13×16，不是单根杆宽 4）。
+    /// 与 H7 的区别：H7 是**状态记号的左右两态对照**（左"停"实心横杠 / 右"跟"箭头）；N5 是**一个直读的暂停符**，讲"按 E = 定住"。布局：人物住 M-L，暂停记号与落地史莱姆住 M-R（同格间隔 6px）。旧版违规已修（`1` 键帽 r=11 压住落地史莱姆、开口环与 `E` 键帽相切）。</summary>
     static void PaintItemBar5(MuralCanvas c)
     {
         Color32 k = muralInkColor;
@@ -914,17 +914,17 @@ public static class MuralGenerator
         c.Stroke(14f, 38f, 18f, 32f, muralLineWidth, k);
         c.EndElem(null);
 
-        c.BeginElem("开锁记号（开口环）", MuralZone.MainRight);
-        c.Ring(47f, 45f, 7f, muralLineWidth, k);                          // 开口环 = 解除限制
-        c.ClearBox(51, 50, 53, 52);                                       // 缺口（开在环的右上角）
+        c.BeginElem("暂停记号（两条竖杠）", MuralZone.MainRight);
+        c.Box(41, 38, 44, 53, k);                                         // 左杆 4×16
+        c.Box(50, 38, 53, 53, k);                                         // 右杆 4×16（等宽等高、关于 x=47 对称；中间 x[45,49] 留 5px 空隙）
         c.EndElem(null);
 
         c.BeginElem("落地史莱姆", MuralZone.MainRight);
         c.Slime(46f, 25f, 6f, k);
         c.EndElem(null);
 
-        MuralKeyCapLeft(c, MuralGlyph1, "1 键帽（先切空手）");             // 先切 `1` 空手
-        MuralKeyCapRight(c, MuralGlyphE, "E 键帽（放下）");                // 再按 `E` 放下
+        MuralKeyCapLeft(c, MuralGlyph2, "2 键帽（切到哨子）");              // 先切到哨子那一格
+        MuralKeyCapRight(c, MuralGlyphE, "E 键帽（让史莱姆站住）");         // 再按 E 让它站住
     }
 
     // =================================================================================
