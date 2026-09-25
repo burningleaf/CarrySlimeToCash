@@ -15,7 +15,7 @@
 //    ⚠ 接线不在这一个文件里做 —— 那是另一轮的事，本文件只产图。
 //
 //  怎么用：
-//    · 菜单：Tools/呆呆史莱姆/▣ 生成象形图路牌（20 张 Mural PNG）
+//    · 菜单：Tools/呆呆史莱姆/4 生成素材/象形图路牌
 //    · 命令行：Unity.exe -batchmode -quit -projectPath <项目路径>
 //              -executeMethod MuralGenerator.BatchGenerateMurals
 //
@@ -171,7 +171,7 @@ public static class MuralGenerator
     //  二、入口
     // =================================================================================
 
-    [MenuItem("Tools/呆呆史莱姆/▣ 生成象形图路牌（20 张 Mural PNG）", false, 23)]
+    [MenuItem("Tools/呆呆史莱姆/4 生成素材/象形图路牌", false, 401)]
     public static void GenerateMuralsMenu()
     {
         MuralGenerateAll();

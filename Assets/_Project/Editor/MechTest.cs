@@ -66,7 +66,7 @@ public static class MechTest
 
         if (!System.IO.File.Exists(LevelMechSetup.ScenePath))
         {
-            Debug.LogError("[机关测试] 找不到场景，先跑 ▷ 建机关测试关：" + LevelMechSetup.ScenePath);
+            Debug.LogError("[机关测试] 找不到场景，先跑 8 测试关 → 建机关测试关：" + LevelMechSetup.ScenePath);
             return FailNotRun;
         }
 

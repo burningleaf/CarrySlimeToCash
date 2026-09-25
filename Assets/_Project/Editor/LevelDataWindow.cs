@@ -1,10 +1,10 @@
 // ---------------------------------------------------------------------------
 // LevelDataWindow.cs —— 关卡数据工具（只放在 Editor 文件夹里，不进游戏包）
 //
-// P0 阶段先提供三个菜单：
-//   ⓪-1 导出当前场景 → LevelData JSON
-//   ⓪-2 从 LevelData JSON 重建关卡
-//   ⓪-3 往返一致性检查（导出 → 重建 → 再导出 → 逐行比对）
+// P0 阶段先提供三个菜单（都在 1 关卡数据 下）：
+//   导出场景到 JSON
+//   从 JSON 重建场景
+//   往返一致性检查（导出 → 重建 → 再导出 → 逐行比对）
 //
 // 后续（P1/P3）这里会长成一个 EditorWindow：地形表 + 物件表 + Gizmo 预览 + 求解按钮。
 //
@@ -37,7 +37,7 @@ public static class LevelDataWindow
 
     // ======================= 菜单 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/⓪-1 导出当前场景 → LevelData JSON", false, 10)]
+    [MenuItem("Tools/呆呆史莱姆/1 关卡数据/导出场景到 JSON", false, 100)]
     public static void ExportMenu()
     {
         Scene scene = EditorSceneManager.GetActiveScene();
@@ -47,7 +47,7 @@ public static class LevelDataWindow
         Report(scene.name, r);
     }
 
-    [MenuItem("Tools/呆呆史莱姆/⓪-2 从 LevelData JSON 重建关卡", false, 11)]
+    [MenuItem("Tools/呆呆史莱姆/1 关卡数据/从 JSON 重建场景", false, 101)]
     public static void RebuildMenu()
     {
         Scene scene = EditorSceneManager.GetActiveScene();
@@ -56,7 +56,7 @@ public static class LevelDataWindow
         if (!ok) EditorUtility.DisplayDialog("重建关卡", msg, "好");
     }
 
-    [MenuItem("Tools/呆呆史莱姆/⓪-3 往返一致性检查（导出→重建→再导出）", false, 12)]
+    [MenuItem("Tools/呆呆史莱姆/1 关卡数据/往返一致性检查", false, 102)]
     public static void RoundTripMenu()
     {
         Scene scene = EditorSceneManager.GetActiveScene();
@@ -67,7 +67,7 @@ public static class LevelDataWindow
 
     // ======================= 收益公式自检 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/⓪-5 收益公式自检（打出数值表）", false, 13)]
+    [MenuItem("Tools/呆呆史莱姆/2 求解与校验/收益公式自检", false, 202)]
     public static void ScoreTableMenu()
     {
         Debug.Log(BuildScoreTable(EditorSceneManager.GetActiveScene()));
@@ -481,7 +481,7 @@ public static class LevelDataWindow
             Camera cam = cf.GetComponent<Camera>();
             // ⚠ 必须读 cf.baseSize（关卡【基准】视野 = meta.cameraSize），不能读 cam.orthographicSize：
             //    相机自动拉远上线后，导出那一刻相机可能正在拉远，读"当下值"会把拉远后的尺寸永久写进 JSON
-            //    （关卡初始视野被改大），而 META 比对行含 cameraSize（LevelData.cs:388-391）→ ⓪-3 会报
+            //    （关卡初始视野被改大），而 META 比对行含 cameraSize（LevelData.cs:388-391）→ 1 关卡数据 → 往返一致性检查 会报
             //    「往返不一致 ❌」，且极难排查。
             //    baseSize <= 0 时才退回读相机当前尺寸（编辑模式下相机不会自动拉远，兜底是安全的）。
             if (cf.baseSize > 0f) data.meta.cameraSize = cf.baseSize;
@@ -787,7 +787,7 @@ public static class LevelDataWindow
         string jsonPath = LevelsDir + "/" + scene.name + ".json";
         if (!File.Exists(jsonPath))
         {
-            msg = "找不到关卡数据：" + jsonPath + "\n先点 ⓪-1 导出。";
+            msg = "找不到关卡数据：" + jsonPath + "\n先跑 1 关卡数据 → 导出场景到 JSON。";
             return false;
         }
 
@@ -1335,7 +1335,7 @@ public static class LevelDataWindow
     /// </summary>
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
     // ⚠ 批处理入口 LevelDataWindow.BatchRebuildLevel1 仍在（本菜单包装里的确认框随之不再可达）。
-    // [MenuItem("Tools/呆呆史莱姆/▷ 重做 Level1 关卡内容（覆盖，会先备份）", false, 87)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/重做 Level1 关卡内容（覆盖，会先备份）", false, 913)]
     public static void RebuildLevel1Menu()
     {
         bool go = EditorUtility.DisplayDialog(
@@ -1628,7 +1628,7 @@ public class LevelDataEditorWindow : EditorWindow
     static readonly string[] TerrainKindNames = Enum.GetNames(typeof(TerrainKind));
     static readonly string[] ObjectKindNames = Enum.GetNames(typeof(LevelObjectKind));
 
-    [MenuItem("Tools/呆呆史莱姆/◇ 关卡数据编辑器（表格改数值，不碰文本）", false, 14)]
+    [MenuItem("Tools/呆呆史莱姆/1 关卡数据/关卡数据编辑器", false, 103)]
     public static void Open()
     {
         LevelDataEditorWindow w = GetWindow<LevelDataEditorWindow>("关卡数据编辑器");

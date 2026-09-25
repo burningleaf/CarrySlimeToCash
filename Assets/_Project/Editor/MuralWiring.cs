@@ -48,7 +48,7 @@ public static class MuralWiring
 
     // ======================= 菜单 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/▣▣ 接线象形图路牌（Level0）", false, 24)]
+    [MenuItem("Tools/呆呆史莱姆/5 接线/象形图路牌接线", false, 501)]
     public static void BatchWireMurals()
     {
         string jsonPath = LevelDataWindow.LevelsDir + "/" + LevelName + ".json";
@@ -246,12 +246,12 @@ public static class MuralWiring
             HashSet<string> uniq = new HashSet<string>(repeatIds);
             Debug.LogWarning("[路牌接线] muralId 有重复：" + string.Join("、", new List<string>(uniq).ToArray()) +
                              "\n  重复的 muralId 会让导出器的 Icon→muralSprites 反查只命中较小下标，" +
-                             "另一块的 sprIndex 往返会不一致（⓪-3 检查会报错）。先保证 muralId 唯一。");
+                             "另一块的 sprIndex 往返会不一致（1 关卡数据 → 往返一致性检查 会报错）。先保证 muralId 唯一。");
         }
 
         if (labelLeft > 0)
             Debug.LogWarning("[路牌接线] 重建后仍有 " + labelLeft + " 个 Label 文字物体（预期 0）。" +
-                             "检查菜单 ⓪-2 重建后 showMuralLabels 是否仍为 false。");
+                             "检查菜单 1 关卡数据 → 从 JSON 重建场景 后 showMuralLabels 是否仍为 false。");
     }
 
     // ======================= 小工具 =======================

@@ -19,14 +19,14 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public static class VisualAudit
 {
-    [MenuItem("Tools/呆呆史莱姆/▣▣▣ 接线路牌 + 量世界尺寸（一条龙）", false, 25)]
+    [MenuItem("Tools/呆呆史莱姆/5 接线/路牌接线 + 量世界尺寸", false, 502)]
     public static void BatchWireMuralsAndAudit()
     {
         MuralWiring.BatchWireMurals();
         Audit();
     }
 
-    [MenuItem("Tools/呆呆史莱姆/◇ 量视觉世界尺寸（诊断）", false, 36)]
+    [MenuItem("Tools/呆呆史莱姆/6 画面/量世界尺寸（诊断）", false, 601)]
     public static void BatchAuditVisuals()
     {
         if (EditorSceneManager.GetActiveScene().name != "Level0")

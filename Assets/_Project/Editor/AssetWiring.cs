@@ -2,7 +2,7 @@
 // AssetWiring.cs —— 音效资源接线（编辑器工具，只放 Editor 文件夹，不进游戏包）
 //
 // 用法：
-//   菜单：Unity 顶部 → Tools → 呆呆史莱姆 → ♪ 音效接线（全部场景 + 预制体）
+//   菜单：Unity 顶部 → Tools → 呆呆史莱姆 → 5 接线 → 音效接线
 //   命令行：
 //     Unity.exe -batchmode -quit -projectPath 【工程路径】 ^
 //               -executeMethod AssetWiring.BatchWireAssets -logFile 【日志】
@@ -103,7 +103,7 @@ public static class AssetWiring
 
     // ======================= 菜单 / 命令行入口 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/♪ 音效接线（全部场景 + 预制体）", false, 22)]
+    [MenuItem("Tools/呆呆史莱姆/5 接线/音效接线", false, 500)]
     public static void WireMenu()
     {
         BatchWireAssets();

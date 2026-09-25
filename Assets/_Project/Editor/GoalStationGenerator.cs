@@ -32,7 +32,7 @@
 //     若以后要换字/换字号：重跑取样脚本 → 把新的 hex 抄进下面 SignGlyphs 即可。
 //
 // 用法：
-//   菜单  Tools / 呆呆史莱姆 / ▨ 生成收购站贴图（终点观感）
+//   菜单  Tools / 呆呆史莱姆 / 4 生成素材 / 收购站贴图
 //   Unity.exe -batchmode -quit -executeMethod GoalStationGenerator.BatchGenerateGoalStation
 //   只写 1 个 PNG：Assets/_Project/Art/Environment/Sprite_GoalStation.png（同路径覆盖）
 //   写完自己把导入设置设成像素风（Point / PPU=像素宽 / Single / Center），不依赖别处自愈。
@@ -213,7 +213,7 @@ public static class GoalStationGenerator
     // 五、入口
     // =======================================================================
 
-    [MenuItem("Tools/呆呆史莱姆/▨ 生成收购站贴图（终点观感）", false, 23)]
+    [MenuItem("Tools/呆呆史莱姆/4 生成素材/收购站贴图", false, 402)]
     public static void GenerateGoalStationMenu()
     {
         int opaque = GenerateOne();

@@ -102,6 +102,8 @@ public static class LevelSolver
         public float maxDropHeight = 8f;
         public float gravityScale = 4f;
         public float followJumpRatio = 1f;
+        /// <summary>跟跳滞空时间倍率（SlimeController.jumpAirTimeMultiplier）。1 = 与玩家滞空时间相同。</summary>
+        public float jumpAirTimeMultiplier = 1f;
         public bool stopAtLedge = true;
         public string source = "默认值（没找到场景里的 SlimeController）";
         public float Gravity { get { return 9.81f * Mathf.Max(0.01f, gravityScale); } }
@@ -147,6 +149,7 @@ public static class LevelSolver
             if (sc.maxStepHeight > 0f) sl.stepHeight = sc.maxStepHeight;
             if (sc.maxDropHeight > 0f) sl.maxDropHeight = sc.maxDropHeight;
             if (sc.jumpHeightRatio > 0f) sl.followJumpRatio = sc.jumpHeightRatio;
+            if (sc.jumpAirTimeMultiplier > 0f) sl.jumpAirTimeMultiplier = sc.jumpAirTimeMultiplier;
             sl.stopAtLedge = sc.stopAtLedge;
             Rigidbody2D srb = sc.body != null ? sc.body : sc.GetComponent<Rigidbody2D>();
             if (srb != null && srb.gravityScale > 0f) sl.gravityScale = srb.gravityScale;
@@ -871,7 +874,14 @@ public static class LevelSolver
         s.stepHeight = ab.slime.stepHeight;
         s.playerHeight = ab.slime.diameter;
         s.playerWidth = ab.slime.diameter;
-        s.jumpHeight = withFollowJump ? ab.jumpHeight * ab.slime.followJumpRatio : 0f;
+        // 跟跳高度**不是**「玩家跳高 × 某个比例字段」，而是按"滞空时间与玩家相同"反算出来的：
+        //   SlimeController.JumpFollow：t = 2√(2h/(g·玩家重力))，h' = g·史莱姆重力·(t·倍率)²/8
+        //   代入化简（g 约掉）⇒ h' = h × (史莱姆重力 / 玩家重力) × 倍率²，再 clamp 到 [0.3, 8]。
+        float gRatio = ab.slime.gravityScale / Mathf.Max(0.01f, ab.gravityScale);
+        float airMul = ab.slime.jumpAirTimeMultiplier;
+        s.jumpHeight = withFollowJump
+            ? Mathf.Clamp(ab.jumpHeight * gRatio * airMul * airMul, 0.3f, 8f)
+            : 0f;
         s.carryJumpHeight = s.jumpHeight;
         s.slime = ab.slime;
         s.source = withFollowJump
@@ -1413,395 +1423,211 @@ public static class LevelSolver
 
     // ======================= 报告 =======================
 
-    public static string BuildReport(LevelData data, Report r)
+    public static string BuildReport(LevelData data, Report full)
     {
         // 【性能】只测"报告组装"这一段（⛔ 不含调用方的 Debug.Log / 场景打开）
         System.Diagnostics.Stopwatch perfAsm = System.Diagnostics.Stopwatch.StartNew();
         StringBuilder sb = new StringBuilder();
-        sb.AppendLine("========== 关卡求解报告：" + data.meta.levelId + " ==========");
-        sb.AppendLine(string.Format(
-            "【能力参数】来源={0}  移速 {1:0.##}  跳高 {2:0.##}  重力 {3:0.##}",
-            r.ability.source, r.ability.moveSpeed, r.ability.jumpHeight, r.ability.Gravity));
-        sb.AppendLine(string.Format("【地形图】可站立面 {0} 段 / 站点 {1} 个 / 连边 {2} 条",
-            r.segs.Count, r.stationCount, r.edgeCount));
+
+        // ---- 主口径 = 通关口径 ----
+        // 通关条件是「史莱姆进入收购站」（Goal.onlySlime = true），金币也只由史莱姆收集，
+        // 而史莱姆的跟跳没有距离限制 ⇒ **主口径取"史莱姆跟跳"那一份**。
+        // 玩家那一份（full）只用来回答"能不能搬过去 / 玩家自己能到哪"这种诊断问题。
+        Report r = (full.slimeFollowJump != null) ? full.slimeFollowJump : full;
+        Report carryWay = full.carry, aloneWay = full.slimeAlone;
+
+        sb.AppendLine("========== " + data.meta.levelId + " ==========");
+        sb.AppendLine("口径：通关 = 史莱姆进入收购站 ｜ 金币只由史莱姆收集 ｜ 未含 机关 / 敌人 / 伤害地形");
 
         if (r.startSeg < 0 || r.goalSeg < 0)
         {
-            sb.AppendLine("【结果】找不到起点或终点所在的可站立面 —— 检查出生点/终点是不是悬空的");
+            sb.AppendLine("【通关】起点或终点不在任何可站立面上 —— 检查史莱姆出生点 / 收购站是不是悬空的");
             sb.AppendLine("==========================================");
             return sb.ToString();
         }
 
-        // 自检：任何走法都不可能比"直线跑"更快。求解器算错时这一条会立刻暴露。
-        if (r.minTime < float.MaxValue)
-            sb.AppendLine(string.Format("【自检】直线下界 {0:0.0}s（水平距离 ÷ 移速）｜ 求解结果 {1:0.0}s  {2}",
-                r.lowerBound, r.minTime,
-                r.minTime >= r.lowerBound - 0.01f ? "✅ 合理" : "❌ 比直线还快，模型有 bug"));
-
+        // ---- 【通关】谁、能不能到、多久 ----
         if (r.goalReachable)
-        {
-            sb.AppendLine(string.Format("【可达性】起点 → 终点：**可达 ✅**   最短时间 {0:0.0} 秒（parTime {1:0.#} 秒）",
+            sb.AppendLine(string.Format("【通关】史莱姆（跟跳）→ 收购站    可达 ✅    {0:0.0}s    parTime {1:0.#}s",
                 r.minTime, r.parTime));
-            sb.AppendLine("    口径：**空手玩家**（移速/跳高用空手值）、**已计入净空**（矮通道已切开，时间含翻越/绕行）、");
-            sb.AppendLine("    **已计入宽度**（窄过玩家 0.8 的槽钻不过去）。携带态与史莱姆见下面两节 —— 不是这里这一条。");
-            sb.AppendLine("    **未计**：机关（门 / 压板 / 移动平台 / 敌人）—— 求解器对它们是盲的，只能靠真人试玩。");
+        else
+            sb.AppendLine("【通关】史莱姆（跟跳）→ 收购站    不可达 ❌    地形有断点");
+
+        // 另两条路线：这关靠什么过（诊断，不是结论）
+        sb.AppendLine(string.Format("       史莱姆单独 {0}  ｜  被搬运 {1}",
+            (aloneWay != null && aloneWay.goalReachable) ? string.Format("✅ {0:0.0}s", aloneWay.minTime) : "❌",
+            (carryWay != null && carryWay.goalReachable) ? string.Format("✅ {0:0.0}s", carryWay.minTime) : "❌"));
+
+        // ---- 【收益】一行给结论 ----
+        if (r.goalReachable && r.bestComputed)
+        {
+            float gap = r.bestNewGapPercent;
+            string tag = gap < 15f ? "❌ <15%：收集要素接近假选择"
+                       : (gap > 35f ? "❌ >35%：可能变成猜谜" : "✅ 目标 15~35%");
+            sb.AppendLine(string.Format("【收益】冲刺 {0} 元（{1:0.0}s）→ R* {2} 元（{3:0.0}s，捡 {4} 枚）    收益差 {5:+0.0;-0.0}%  {6}",
+                r.rushScore, r.minTime, r.bestScore, r.bestTime, r.bestCoinCount, gap, tag));
         }
         else
-            sb.AppendLine("【可达性】起点 → 终点：**不可达 ❌**   玩家（空手）根本走不到终点，关卡有断点");
+        {
+            sb.AppendLine("【收益】未算：" + (r.goalReachable ? r.bestSkipReason : "先修地形断点"));
+        }
+
+        sb.AppendLine(string.Format("【能力】{0}", r.ability.source));
 
         // =====================================================================
-        // 本轮改造·携带与史莱姆：三态「谜题可解」 + 携带可达性 + 史莱姆通道
-        //   通关条件是「史莱姆进终点」⇒ 只报"空手可达"是不够的，必须把三种口径并列说清。
+        // 诊断：这关"靠什么过"已经写在上面【通关】的下一行里。
+        //   下面只保留**地形层面的差异**（谁钻得过谁钻不过），因为它直接决定走法。
         // =====================================================================
-        if (r.carry != null)
+
+        // 搬运卡点：搬运不可达时，报出第一个卡住的那一跳 —— 设计上要改的就是它
+        if (carryWay != null && !carryWay.goalReachable)
         {
-            sb.AppendLine("【谜题可解性·三态】通关条件是「**史莱姆**进终点」，所以「空手可达」不能证明这关能过：");
-            sb.AppendLine("    ① 玩家**空手** → 终点：" + ReachLine(r));
-            sb.AppendLine("    ② 玩家**携带**史莱姆 → 终点：" + ReachLine(r.carry));
-            sb.AppendLine("    ③ **史莱姆单独** → 终点：" + ReachLine(r.slimeAlone));
-            sb.AppendLine("    ④ 史莱姆**跟跳**（玩家在旁）→ 终点：" + ReachLine(r.slimeFollowJump));
-            sb.AppendLine("    ⇒ " + PuzzleVerdict(r));
+            Hop blocker = FirstBlockedHop(full, carryWay.ability);
+            if (blocker != null)
+                sb.AppendLine(string.Format("       搬运卡在：{0}   （dx {1:0.##} / dy {2:+0.##;-0.##}，携带跳高 {3:0.##}）",
+                    blocker.Trans(), blocker.dx, blocker.dy, carryWay.ability.jumpHeight));
         }
 
-        // ---- 【携带可达性】(本轮改造·携带与史莱姆) ----
-        if (r.carry != null)
+        // ---- 【地形】谁钻得过谁钻不过 ----
+        //   判据与建图切分同一个不等式：净空 ≤ 需求 + 0.05 ⇒ 钻不过去。
+        //   玩家需求 = 碰撞盒高；史莱姆需求 = 直径。
+        SlimeCaps sl = r.ability.slime;
+        if (r.clearance.Count == 0)
         {
-            Ability cab = r.carry.ability;
-            sb.AppendLine("【携带可达性】移速/跳高换成携带值（净空 1.2、宽度 0.8 与空手相同）");
-            sb.AppendLine(string.Format("    携带包络：移速 {0:0.##}、跳高 {1:0.##}（空手是 {2:0.##} / {3:0.##}）",
-                cab.moveSpeed, cab.jumpHeight, r.ability.moveSpeed, r.ability.jumpHeight));
-            if (r.carry.goalReachable)
+            sb.AppendLine("【地形】没有走道头顶 4 格内有东西 —— 玩家与史莱姆都能直着走过去");
+        }
+        else
+        {
+            sb.AppendLine(string.Format("【地形】矮通道 {0} 处（玩家盒高 {1:0.##} / 史莱姆直径 {2:0.##}）",
+                r.clearance.Count, full.ability.playerHeight, sl.diameter));
+            foreach (Clearance c in r.clearance)
             {
-                sb.AppendLine(string.Format("    携带也能到终点 ✅：{0:0.0}s（比空手 {1:0.0}s 慢 {2:+0.0;-0.0}s）",
-                    r.carry.minTime, r.minTime, r.carry.minTime - r.minTime));
-                sb.AppendLine("    ⇒ 史莱姆可以被搬运到终点（不必依赖机关）。");
-            }
-            else
-            {
-                sb.AppendLine("    携带**到不了终点 ❌** —— 下面这一跳就是第一个卡住的地方：");
-                Hop blocker = FirstBlockedHop(r, cab);
-                if (blocker != null)
-                {
-                    sb.AppendLine("      " + blocker.Trans());
-                    if (blocker.dy > cab.jumpHeight + 0.01f)
-                        sb.AppendLine(string.Format(
-                            "      需要 dy = {0:+0.##;-0.##} 格 ⇒ **跳不上去**（携带跳高只有 {1:0.##}，差 {2:0.##} 格）；" +
-                            "必须先找落脚点，或者靠机关/分段搬运",
-                            blocker.dy, cab.jumpHeight, blocker.dy - cab.jumpHeight));
-                    else if (blocker.dy >= -0.5f)
-                    {
-                        // 一次判据审查后：平跳（dy≈0）现在也会被拦下来 —— 措辞必须说清是"平跳跨距不够"
-                        string jumpKind = blocker.dy <= 0.01f ? "平跳" : "上跳";
-                        float span = MaxJumpDx(blocker.dy, cab);
-                        sb.AppendLine(string.Format(
-                            "      需要横跨 dx = {0:0.##} 格（dy={1:+0.##;-0.##} 的{2}，携带最多跨 {3:0.##}，差 {4:0.##}）",
-                            blocker.dx, blocker.dy, jumpKind, span, blocker.dx - span));
-                    }
-                    else
-                        sb.AppendLine(string.Format(
-                            "      需要落下去 dy = {0:0.##} / 横跨 dx = {1:0.##} 格（携带落下去最多跨 {2:0.##}，差 {3:0.##}）",
-                            blocker.dy, blocker.dx, FallMaxDx(blocker.dy, cab), blocker.dx - FallMaxDx(blocker.dy, cab)));
-                    sb.AppendLine("    ⇒ 史莱姆**不能靠玩家一路搬过去**，必须靠机关/引导石/分段搬运 ——"
-                                  + "而求解器对机关是盲的，这一条只能真人验证。");
-                }
-                else
-                    sb.AppendLine("      （找不到「单个卡住的跳」：可能是整片连通域进不去，看下面的段级对比。）");
+                bool playerOk = c.clear > full.ability.playerHeight + 0.05f;
+                bool slimeOk = c.clear > sl.diameter + 0.05f;
+                string verdict = playerOk && slimeOk ? "玩家 ✅ / 史莱姆 ✅"
+                               : (!playerOk && slimeOk ? "玩家 ❌ / 史莱姆 ✅"
+                               : (!playerOk && !slimeOk ? "玩家 ❌ / 史莱姆 ❌" : "玩家 ✅ / 史莱姆 ❌"));
+                sb.AppendLine(string.Format("    {0,-26} x[{1,6:0.#},{2,6:0.#}]  净空 {3,5:0.##}  压顶={4,-12} {5}",
+                    c.segName, c.fromX, c.toX, c.clear, c.blocker, verdict));
             }
         }
-
-        // ---- 【史莱姆通道】(本轮改造·携带与史莱姆) ----
-        if (r.slimeAlone != null)
-        {
-            SlimeCaps sl = r.ability.slime;
-            sb.AppendLine("【史莱姆通道】史莱姆直径 " + sl.diameter.ToString("0.##") + "（与玩家的 1.2 **分开算**，绝不混用）");
-            sb.AppendLine("    能力来源：" + sl.source);
-            sb.AppendLine(string.Format("    数值：直径 {0:0.##} / 移速 {1:0.##} / 台阶 {2:0.##} / 重力 {3:0.##} / 跟跳比例 {4:0.##}（玩家跳高 {5:0.##}）",
-                sl.diameter, sl.moveSpeed, sl.stepHeight, sl.gravityScale, sl.followJumpRatio, r.ability.jumpHeight));
-            // ① 净空角度：谁钻得过谁钻不过（判据与【净空检查】同一个不等式：clear ≤ 需求 + 0.05）
-            if (r.clearance.Count == 0)
-                sb.AppendLine("    ① 净空：没有任何走道头顶 4 格内有东西 —— 玩家与史莱姆都能直着走过去");
-            else
-            {
-                sb.AppendLine("    ① 净空（谁钻得过）—— 判据：净空 ≤ 需求 + 0.05 就钻不过去");
-                foreach (Clearance c in r.clearance)
-                {
-                    bool playerOk = c.clear > r.ability.playerHeight + 0.05f;
-                    bool slimeOk = c.clear > sl.diameter + 0.05f;
-                    string verdict = playerOk && slimeOk ? "玩家 ✅ / 史莱姆 ✅"
-                                   : (!playerOk && slimeOk ? "玩家 ❌ / **史莱姆 ✅**（它能钻、玩家得翻过去）"
-                                   : (!playerOk && !slimeOk ? "玩家 ❌ / **史莱姆也 ❌**（必须被搬过去）" : "玩家 ✅ / 史莱姆 ❌"));
-                    sb.AppendLine(string.Format("      {0,-22} x[{1,6:0.#},{2,6:0.#}] 净空 {3,5:0.##} 压顶={4,-12} {5}",
-                        c.segName, c.fromX, c.toX, c.clear, c.blocker, verdict));
-                }
-            }
-            // ② 宽度角度：窄槽（比谁的身体还窄）—— 两边解出来的段集合差集就是答案
-            //   onlyInPlayer = 玩家(0.8)解里有、史莱姆(0.9)解里没有 ⇒ 玩家能过、史莱姆过不去（窄槽）
-            //   onlyInSlime  = 史莱姆解里有、玩家解里没有   ⇒ 史莱姆能过、玩家过不去（矮通道之类，它比玩家小）
-            List<string> onlyInPlayer = new List<string>(), onlyInSlime = new List<string>();
-            DiffSegSets(r.segs, r.slimeAlone.segs, onlyInPlayer, onlyInSlime);
-            if (onlyInPlayer.Count == 0 && onlyInSlime.Count == 0)
-                sb.AppendLine("    ② 宽度（窄槽）：本关没有「谁钻得过谁钻不过」的窄槽（两侧段集合一致）");
-            else
-            {
-                if (onlyInPlayer.Count > 0)
-                {
-                    sb.AppendLine("    ② 宽度：这些地方**史莱姆过不去、玩家能过**（窄过史莱姆 0.9 的槽）：");
-                    foreach (string s2 in onlyInPlayer) sb.AppendLine("      " + s2);
-                }
-                if (onlyInSlime.Count > 0)
-                {
-                    sb.AppendLine("    ② 宽度/净空：这些地方**玩家过不去、史莱姆能过**（它比玩家小）：");
-                    foreach (string s2 in onlyInSlime) sb.AppendLine("      " + s2);
-                }
-            }
-            // ③ 结论：它能不能自己到终点 / 必须被搬的位置
-            if (r.slimeAlone.goalReachable)
-                sb.AppendLine(string.Format("    ③ 史莱姆**自己能**走到终点 ✅（{0:0.0}s）⇒ 这一关不依赖玩家搬运它",
-                    r.slimeAlone.minTime));
-            else if (r.slimeFollowJump != null && r.slimeFollowJump.goalReachable)
-                sb.AppendLine(string.Format("    ③ 史莱姆自己到不了，但**跟着玩家跳**能到 ✅（{0:0.0}s）⇒ 玩家得在旁边给它带跳",
-                    r.slimeFollowJump.minTime));
-            else
-            {
-                sb.AppendLine("    ③ 史莱姆**自己到不了终点 ❌**（跟跳也到不了）⇒ 这些段它必须被玩家搬运/或靠机关：");
-                List<string> stuck = new List<string>();
-                for (int i = 0; i < r.slimeAlone.reachableSegs.Length && i < r.slimeAlone.segs.Count; i++)
-                    if (!r.slimeAlone.reachableSegs[i])
-                        stuck.Add(string.Format("{0} x[{1:0.#},{2:0.#}]@y{3:0.#}",
-                            SegLabel(r.slimeAlone, i), r.slimeAlone.segs[i].x0, r.slimeAlone.segs[i].x1, r.slimeAlone.segs[i].y));
-                for (int i = 0; i < stuck.Count && i < 10; i++) sb.AppendLine("      " + stuck[i]);
-                if (stuck.Count > 10) sb.AppendLine(string.Format("      … 共 {0} 段", stuck.Count));
-            }
-        }
+        // 窄槽：两侧段集合的差集（玩家宽 0.8 / 史莱姆宽 0.9）
+        List<string> onlyInPlayer = new List<string>(), onlyInSlime = new List<string>();
+        DiffSegSets(full.segs, r.segs, onlyInPlayer, onlyInSlime);
+        if (onlyInPlayer.Count > 0)
+            sb.AppendLine("    窄槽（玩家能过、史莱姆过不去）：" + string.Join("、", onlyInPlayer.ToArray()));
+        if (onlyInSlime.Count > 0)
+            sb.AppendLine("    矮通道（史莱姆能过、玩家过不去）：" + string.Join("、", onlyInSlime.ToArray()));
 
         if (r.pathDesc.Count > 0)
-        {
-            sb.AppendLine("【最短时间路线】" + string.Join(" → ", r.pathDesc.ToArray()));
-            sb.AppendLine("    （括号里是该段上**真正换段的站点** x@y，不是段中心；只列换段点，段内走路不单独列出。" +
-                          "相邻两项之间的跳/落必须满足 dx ≤ 跳跃上限，见路线标签查证诊断）");
-        }
+            sb.AppendLine("【路线】" + string.Join(" → ", r.pathDesc.ToArray()));
 
         if (r.pathSteps != null && r.pathSteps.Count > 0)
         {
-            sb.AppendLine(string.Format("【路线明细】逐动作（合计 {0:0.0}s，与最短时间对得上说明回溯无误）：", r.pathSum));
+            sb.AppendLine(string.Format("【明细】逐动作，合计 {0:0.0}s：", r.pathSum));
             foreach (string s in r.pathSteps) sb.AppendLine("    " + s);
         }
 
         if (r.unreachable.Count > 0)
         {
-            sb.AppendLine(string.Format("【死点】{0} 段可站立面从起点到不了（玩家永远上不去）：", r.unreachable.Count));
+            sb.AppendLine(string.Format("【死点】{0} 段可站立面史莱姆到不了：", r.unreachable.Count));
             for (int i = 0; i < r.unreachable.Count && i < 12; i++)
                 sb.AppendLine("    " + r.unreachable[i]);
         }
 
-        if (r.dumpSegments)
+        if (full.dumpSegments)
         {
-            sb.AppendLine(string.Format("【可站立面清单】共 {0} 段：", r.segs.Count));
+            sb.AppendLine(string.Format("【可站立面】共 {0} 段：", r.segs.Count));
             foreach (Seg s in r.segs)
                 sb.AppendLine(string.Format("    {0,-9} x[{1,7:0.##},{2,7:0.##}] 宽{3,5:0.##} 顶y={4,6:0.##}  {5}",
                     "#" + s.id, s.x0, s.x1, s.Length, s.y, s.name));
         }
 
-        // ---- 净空（头顶高度）----
-        sb.AppendLine(string.Format("【净空检查】玩家碰撞盒高 {0:0.##} 格（净空低于它 = 玩家钻不过去）", r.ability.playerHeight));
-        if (r.clearance.Count == 0)
-        {
-            sb.AppendLine("    没有任何走道头顶 4 格以内有东西 —— 全是露天 ✅");
-        }
-        else
-        {
-            foreach (Clearance c in r.clearance)
-            {
-                bool blocked = c.clear <= r.ability.playerHeight + 0.05f;   // ★ 与建图切分同一个不等式
-                string verdict = blocked
-                    ? "玩家钻不过去 ❌ → 该段已就地切开，模型只认翻越/绕行"
-                    : "玩家能钻过去 ✅（但对携带中的史莱姆可能仍然太矮）";
-                sb.AppendLine(string.Format("    {0,-26} x[{1,6:0.#},{2,6:0.#}] 净空 {3,5:0.##}  压顶={4,-12} {5}",
-                    c.segName, c.fromX, c.toX, c.clear, c.blocker, verdict));
-            }
-            sb.AppendLine(string.Format(
-                "    ✅ 上面标了❌的矮通道**已计入模型**：那条走道在净空 < {0:0.##} 的地方被切开，",
-                r.ability.playerHeight + 0.05f));
-            sb.AppendLine("       玩家只能从天花板顶面翻过去（或绕行）—— 所以【可达性】的时间**已经包含**翻越代价。");
-            sb.AppendLine("    ⚠ 仍未建模的**只剩**：机关（门 / 压板 / 移动平台 / 敌人）—— 求解器对它们是盲的。");
-            sb.AppendLine("       携带态与史莱姆（直径 0.9）**已经进了模型**，见下面的【携带可达性】与【史莱姆通道】。");
-        }
-
         // ---- 金币取舍 ----
-        sb.AppendLine("【金币取舍】每秒时间价值 " + r.drainPerSecond.ToString("0.##") + " 元（= 全局掉钱速度）");
-        sb.AppendLine("    名字             位置       面值   绕路代价   预算    挂在哪一段（y=金币高度）      结论         R*选中");
         int worth = 0, trap = 0, unreach = 0;
         foreach (CoinInfo c in r.coins)
         {
-            string verdict;
-            if (!c.Reachable) { verdict = "拿不到 ❌"; unreach++; }
-            else if (c.WorthIt) { verdict = "值得捡 ✅"; worth++; }
-            else { verdict = "不划算 ❌"; trap++; }
-
-            string detour = c.Reachable ? string.Format("{0,7:0.0}s", c.detour) : "  无法到达";
-            string where = string.IsNullOrEmpty(c.segName) ? "（找不到落脚面 ❌）" : c.segName;
+            if (!c.Reachable) unreach++;
+            else if (c.WorthIt) worth++;
+            else trap++;
+        }
+        sb.AppendLine(string.Format("【金币】{0} 枚：值得捡 {1} / 不划算 {2} / 拿不到 {3}    （每秒时间价值 {4:0.##} 元 ⇒ 一枚币的绕路预算 {5:0.0}s）",
+            r.coins.Count, worth, trap, unreach, r.drainPerSecond,
+            r.coins.Count > 0 ? r.coins[0].budget : 0f));
+        sb.AppendLine("   名字             x       面值   绕路     预算   所在段            结论      R*");
+        foreach (CoinInfo c in r.coins)
+        {
+            string verdict = !c.Reachable ? "拿不到" : (c.WorthIt ? "值得捡" : "不划算");
+            string detour = c.Reachable ? string.Format("{0,6:0.0}s", c.detour) : "     —";
+            string where = string.IsNullOrEmpty(c.segName) ? "（悬空）" : c.segName;
             where = where + string.Format("(y{0:0.#})", c.y);
-            // 金币正好落在"矮通道下面"→ 玩家根本进不去那块地方，别被 0.0s 骗了。
-            // ⚠ 本轮改造：改成按**位置**判（币的 x 在压顶块的 x 区间里、且币在它底面之下），
-            //   不再拿段名比 —— 净空进模型后走道会被切开，段名对不上，而且"顶上的币"会被误判。
-            float underClear;
-            if (UnderLowCeiling(r, c, out underClear))
-                where += string.Format(" ⚠在矮通道下（净空 {0:0.##} < 玩家 {1:0.##}）", underClear, r.ability.playerHeight);
-            // R* 那一列：这枚币在"收益最大"的那条路线上（没算 R* 时打 ?，不假装）
-            string inBest = !r.bestComputed ? " ?"
-                          : (r.bestCoinIndexes.Contains(r.coins.IndexOf(c)) ? " ✅" : " —");
-            sb.AppendLine(string.Format("    {0,-15} x{1,-6:0.#} {2,4} 元 {3}  {4,5:0.0}s  {5,-32} {6,-11} {7}",
+            string inBest = !r.bestComputed ? "?" : (r.bestCoinIndexes.Contains(r.coins.IndexOf(c)) ? "捡" : "—");
+            sb.AppendLine(string.Format("   {0,-15} x{1,-6:0.#} {2,4} 元 {3} {4,5:0.0}s  {5,-17} {6,-8} {7}",
                 c.name, c.x, c.value, detour, c.budget, where, verdict, inBest));
         }
-        sb.AppendLine(string.Format("    小结：值得捡 {0} 枚 / 不划算 {1} 枚 / 拿不到 {2} 枚", worth, trap, unreach));
 
-        // ---- 收益估算（三行对照：冲刺（不捡币） / 全收集（精确，可行解） / 最优解 R*）----
+        // ---- 【收益】明细（结论行已经在报告最上面）----
         if (r.goalReachable)
         {
             int barMax = LevelManager.BarMaxFor(r.parTime);
             float drain = LevelManager.DrainRateFor(r.parTime);
             int rushPrice = PriceAt(r.minTime, barMax, drain);
-            int allPrice = 0, allTotal = 0;
+            int allPrice = 0;
             if (r.allCollectTime < float.MaxValue)
-            {
                 allPrice = PriceAt(r.allCollectTime, barMax, drain);
-                allTotal = allPrice + r.coinTotal;
-            }
 
-            sb.AppendLine("【收益估算】");
-            sb.AppendLine(string.Format("    冲刺（不捡币）      {0,5:0.0}s → 售价 {1,4} 元 +   0 = {2,4} 元",
+            sb.AppendLine(string.Format("   冲刺（不捡币） {0,6:0.0}s → 售价 {1,4} 元 +   0 = {2,4} 元",
                 r.minTime, rushPrice, rushPrice));
-            // ---- 全收集：精确可行解（本轮改造·全收集口径）----
-            // 口径 = 求解器**拿得到**的那一撮币（可收集掩码）。耗时取 minTime[可收集掩码][goal]，
-            // 是掩码枚举里的精确最优 ⇒ 它对应一条**真实存在的路线**，不再"逐枚相加、重复计算共享路段"。
             if (r.allCollectTime < float.MaxValue)
-            {
-                allPrice = PriceAt(r.allCollectTime, barMax, drain);
-                allTotal = allPrice + r.collectableValue;
-                sb.AppendLine(string.Format("    全收集（{0}）  {1,5:0.0}s → 售价 {2,4} 元 + {3,3} = {4,4} 元",
-                    r.allCollectIsExact ? "精确，可行解" : "估算，不可行", r.allCollectTime, allPrice,
-                    r.collectableValue, allTotal));
-            }
-            if (!r.allCollectIsExact)
-                sb.AppendLine(string.Format("      ⚠ 这行是**估算**（逐枚绕路相加、含求解器拿不到的币 ⇒ 未必可行）：{0}",
-                    r.bestComputed ? "掩码枚举算得动时会给精确值，但它没跑成" : r.bestSkipReason));
-            // 把"不可行 / 不划算"的币单独点出来 —— 免得读者以为"全收集"包含了它们
-            List<string> un = new List<string>(), unworth = new List<string>();
-            foreach (CoinInfo ci in r.coins)
-            {
-                if (!ci.Reachable) un.Add(ci.name);
-                else if (!ci.WorthIt) unworth.Add(ci.name);
-            }
-            if (un.Count > 0 || unworth.Count > 0)
-            {
-                sb.AppendLine(string.Format("    不在全收集口径内的币：拿不到 {0} 枚{1}；单枚判据不划算 {2} 枚{3}",
-                    un.Count, un.Count > 0 ? "（" + string.Join("、", un.ToArray()) + "）" : "",
-                    unworth.Count, unworth.Count > 0 ? "（" + string.Join("、", unworth.ToArray()) + "）" : ""));
-            }
+                sb.AppendLine(string.Format("   全收集（{0}） {1,5:0.0}s → 售价 {2,4} 元 + {3,3} = {4,4} 元",
+                    r.allCollectIsExact ? "可行" : "估算", r.allCollectTime, allPrice,
+                    r.collectableValue, allPrice + r.collectableValue));
 
             if (r.bestComputed)
             {
-                sb.AppendLine(string.Format("    最优解  R*          {0,5:0.0}s → 售价 {1,4} 元 + {2,3} = {3,4} 元",
+                sb.AppendLine(string.Format("   R*（最优）     {0,6:0.0}s → 售价 {1,4} 元 + {2,3} = {3,4} 元",
                     r.bestTime, r.bestPrice, r.bestCoinValue, r.bestScore));
-                sb.AppendLine("    口径：**R* ≥ 全收集 恒成立**（R* 是全体掩码上的最大值，而「全收集」只是其中一个掩码）；");
-                sb.AppendLine("          R* 也可能恰好**等于**全收集 —— 那就说明本关没有「捡了反而不划算」的币。");
-                if (rushPrice > 0)
+                List<string> nm = new List<string>();
+                foreach (int j in r.bestCoinIndexes)
+                    if (j >= 0 && j < r.coins.Count) nm.Add(r.coins[j].name);
+                sb.AppendLine(string.Format("   捡了 {0} 枚：{1}", r.bestCoinCount,
+                    nm.Count > 0 ? string.Join(", ", nm.ToArray()) : "（一枚不捡）"));
+                if (r.bestPathDesc.Count > 0)
+                    sb.AppendLine("   最优路线：" + string.Join(" → ", r.bestPathDesc.ToArray()));
+                if (r.bestCheatIndexes.Count > 0)
                 {
-                    float gap = r.bestNewGapPercent;
-                    string tag = gap < 15f ? "⚠ 差 <15%：收集要素接近假选择"
-                               : (gap > 35f ? "⚠ 差 >35%：可能变成猜谜" : "✅ 落在 15%~35% 目标区间内");
-                    sb.AppendLine(string.Format("    收益差 = (R* ÷ 冲刺) − 1 = {0:+0.0;-0.0}%   {1}", gap, tag));
-                    sb.AppendLine("    ⚠ 收益差的分子只有 R* 与冲刺，与「全收集」那一行的口径无关 ⇒ 它不受本行改动影响。");
-                    // 旧口径（逐枚相加、含拿不到的币）留一句备查：它是个**不可行**的对照值
-                    if (r.allCollectEstimateTime < float.MaxValue)
+                    sb.AppendLine(string.Format("   {0} 枚被单枚判据标「不划算」但 R* 仍捡（顺路捎带 / 已越过掉血下限 {1:0.0}s）：",
+                        r.bestCheatIndexes.Count, r.floorTime));
+                    for (int k = 0; k < r.bestCheatIndexes.Count; k++)
                     {
-                        int legacyTotal = PriceAt(r.allCollectEstimateTime, barMax, drain) + r.coinTotal;
-                        sb.AppendLine(string.Format("    （旧口径「贪心全拿」= {0} 元：逐枚绕路相加、还把拿不到的币算进分子 ⇒ 不可行解，已不参与对照）",
-                            legacyTotal));
+                        int j = r.bestCheatIndexes[k];
+                        string nm2 = (j >= 0 && j < r.coins.Count) ? r.coins[j].name : ("#" + j);
+                        sb.AppendLine(string.Format("      {0}：单枚绕路 {1:0.0}s > 预算 {2:0.0}s，最优路线里边际只多 {3:0.0}s",
+                            nm2, r.bestCheatSolo[k], (j >= 0 && j < r.coins.Count) ? r.coins[j].budget : 0f,
+                            r.bestCheatMarginal[k]));
                     }
                 }
             }
             else
             {
-                sb.AppendLine(string.Format("    最优解  R*          未算：{0}", r.bestSkipReason));
-                if (rushPrice > 0 && allTotal > 0)
-                    sb.AppendLine(string.Format("    收益差 = 未算（R* 没出来）；全收集那一行的差是 {0:+0.0;-0.0}%",
-                        (allTotal - rushPrice) * 100f / rushPrice));
+                sb.AppendLine("   R* 未算：" + r.bestSkipReason);
             }
         }
 
-        // ---- 最优解 R*：玩家最多能赚多少（掩码枚举的结果）----
-        if (r.goalReachable && r.bestComputed)
-        {
-            sb.AppendLine(string.Format("【最优解 R*】玩家最多能赚多少（金币 {0} 枚 → 掩码 {1} 个）",
-                r.coinCount, r.maskCount));
-            sb.AppendLine(string.Format("    耗时 {0:0.0}s → 售价 {1} 元 + {2} 元 = {3} 元",
-                r.bestTime, r.bestPrice, r.bestCoinValue, r.bestScore));
-
-            string names = "（一枚不捡）";
-            if (r.bestCoinIndexes.Count > 0)
-            {
-                List<string> nm = new List<string>();
-                foreach (int j in r.bestCoinIndexes)
-                    if (j >= 0 && j < r.coins.Count) nm.Add(r.coins[j].name);
-                names = string.Join(", ", nm.ToArray());
-            }
-            sb.AppendLine(string.Format("    捡了 {0} 枚：{1}", r.bestCoinCount, names));
-
-            if (r.bestPathDesc.Count > 0)
-            {
-                sb.AppendLine(string.Format("    路线（逐段合计 {0:0.0}s，与 R* 耗时对得上说明每段都是真实最短路）：" +
-                                            string.Join(" → ", r.bestPathDesc.ToArray()),
-                    r.bestRouteTime));
-                sb.AppendLine("      （括号里是该段上**真正换段的站点** x@y，不是段中心；只列换段点，段内走路不单独列出）");
-            }
-
-            // ⚠ 线性判据（WorthIt）与真实结算不一致的地方，必须自己说出来：
-            //   WorthIt 比的是【单枚往返】的绕路代价；R* 比的是【联合】路线。
-            //   两种情况下线性判据说"不划算"的币捡了其实赚：① 顺路捎带（边际远小于单枚绕路）；
-            //   ② 耗时越过掉血下限（此后时间免费）。这条不是 bug，但会影响
-            //   "R* 只捡值得捡的币"这类验收口径 —— 所以把数字写出来，别让人猜。
-            sb.AppendLine(string.Format("    · 线性判据核对：R* 耗时 {0:0.0}s，掉血下限 {1:0.0}s（{2}）",
-                r.bestTime, r.floorTime, r.bestTime > r.floorTime ? "已越过 ⇒ 之后时间免费" : "未越过 ⇒ 时间一直值钱"));
-            if (r.bestCheatIndexes.Count == 0)
-            {
-                sb.AppendLine("      R* 选中的币全部也是线性判据认「值得捡」的（0 枚例外）");
-            }
-            else
-            {
-                sb.AppendLine(string.Format("      ⚠ 有 {0} 枚被线性判据标「不划算 ❌」但 R* 仍要捡：", r.bestCheatIndexes.Count));
-                for (int k = 0; k < r.bestCheatIndexes.Count; k++)
-                {
-                    int j = r.bestCheatIndexes[k];
-                    string nm = (j >= 0 && j < r.coins.Count) ? r.coins[j].name : ("#" + j);
-                    sb.AppendLine(string.Format("        {0}：单枚绕路 {1:0.0}s > 预算 {2:0.0}s，但在最优路线里边际只多 {3:0.0}s",
-                        nm, r.bestCheatSolo[k], (j >= 0 && j < r.coins.Count) ? r.coins[j].budget : 0f,
-                        r.bestCheatMarginal[k]));
-                }
-            }
-        }
-        else if (r.goalReachable && !r.bestComputed)
-        {
-            sb.AppendLine("【最优解 R*】未算：" + r.bestSkipReason);
-        }
-
-        // ---- 逃课 / 装饰障碍检测 ----
+        // ---- 【设计】障碍移除测试：移除后重算最短时间，变化越小越可有可无 ----
         if (r.obstacleTests.Count > 0)
         {
-            sb.AppendLine("【逃课 / 装饰障碍检测】把某个障碍移除后重算最短时间，变化越小说明它越可有可无");
-            sb.AppendLine("    " + string.Join("\n    ", r.obstacleTests.ToArray()));
+            sb.AppendLine("【设计】障碍移除测试：");
+            sb.AppendLine("   " + string.Join("\n   ", r.obstacleTests.ToArray()));
         }
 
         sb.AppendLine("==========================================");
 
-        // 【性能】求解耗时（两个入口都填了才打印；⛔ 这两行必须是报告的**最末两行**）
+        // 【性能】求解耗时（⛔ 必须是报告的最末行）
         perfAsm.Stop();
-        if (r.solveMs >= 0.0)
-        {
-            sb.AppendLine(string.Format("【性能】求解耗时 {0:F2} ms", r.solveMs + perfAsm.Elapsed.TotalMilliseconds));
-            if (r.bestScoreMs >= 0.0)
-                sb.AppendLine(string.Format("【性能】其中 R* 掩码枚举 {0:F2} ms", r.bestScoreMs));
-        }
+        if (full.solveMs >= 0.0)
+            sb.AppendLine(string.Format("【性能】求解 {0:F2} ms（其中 R* 枚举 {1:F2} ms）",
+                full.solveMs + perfAsm.Elapsed.TotalMilliseconds, r.bestScoreMs));
 
         return sb.ToString();
     }
@@ -2671,20 +2497,20 @@ public static class LevelSolver
 
     // ======================= 菜单入口 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/◇◇-1 求解器自检（对答案，改完求解器必跑）", false, 17)]
+    [MenuItem("Tools/呆呆史莱姆/2 求解与校验/求解器自检", false, 201)]
     public static void SolverSelfTestMenu()
     {
         BatchSolverSelfTest();
     }
 
-    [MenuItem("Tools/呆呆史莱姆/◇◇ 求解当前关卡（最短时间 / 金币取舍 / 逃课检测）", false, 16)]
+    [MenuItem("Tools/呆呆史莱姆/2 求解与校验/求解当前关卡", false, 200)]
     public static void SolveActiveMenu()
     {
         Scene scene = EditorSceneManager.GetActiveScene();
         string json = LevelDataWindow.LevelsDir + "/" + scene.name + ".json";
         if (!System.IO.File.Exists(json))
         {
-            Debug.LogError("[求解器] 找不到关卡数据：" + json + "（先用 ⓪-1 导出）");
+            Debug.LogError("[求解器] 找不到关卡数据：" + json + "（先跑 1 关卡数据 → 导出场景到 JSON）");
             return;
         }
         LevelData d = LevelData.FromJson(System.IO.File.ReadAllText(json, Encoding.UTF8));
@@ -2695,7 +2521,9 @@ public static class LevelSolver
         Report r = Solve(d, ab, null);
         r.dumpSegments = true;
         perfSw.Stop(); r.solveMs = perfSw.Elapsed.TotalMilliseconds;                     // ⛔ 不含下面的逃课检测（它要重解 24 次）
-        RunObstacleTests(d, ab, r, 24);
+        // 障碍检测按**通关口径**（史莱姆跟跳）重解 —— 报告的主口径就是它
+        Report clearRep = r.slimeFollowJump != null ? r.slimeFollowJump : r;
+        RunObstacleTests(d, clearRep.ability, clearRep, 24);
 
         Debug.Log(BuildReport(d, r));
         if (!Application.isBatchMode)

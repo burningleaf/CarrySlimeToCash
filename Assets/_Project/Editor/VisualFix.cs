@@ -27,7 +27,7 @@ public static class VisualFix
 {
     const string ArtRoot = "Assets/_Project/Art";
 
-    [MenuItem("Tools/呆呆史莱姆/▧ 修正导入 PPU（让画面尺寸对上碰撞）", false, 34)]
+    [MenuItem("Tools/呆呆史莱姆/6 画面/修正 PPU", false, 600)]
     public static void BatchFixImportPpu()
     {
         string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { ArtRoot });
@@ -65,7 +65,7 @@ public static class VisualFix
         return w;
     }
 
-    [MenuItem("Tools/呆呆史莱姆/▧▧ 修正 PPU + 量尺寸 + 渲染预览（一条龙）", false, 35)]
+    [MenuItem("Tools/呆呆史莱姆/6 画面/修正 PPU + 量尺寸 + 预览", false, 602)]
     public static void BatchFixAuditPreview()
     {
         BatchFixImportPpu();
@@ -79,7 +79,7 @@ public static class VisualFix
     /// 把关卡真的渲染成 PNG，用来肉眼验收（这是"表现层"这一轮唯一有说服力的验收方式）。
     /// 批处理模式下没有显示器，所以渲染到 RenderTexture 再存盘。
     /// </summary>
-    [MenuItem("Tools/呆呆史莱姆/▣▣▣▣ 渲染关卡预览图（看一眼画面）", false, 37)]
+    [MenuItem("Tools/呆呆史莱姆/6 画面/渲染关卡预览图", false, 603)]
     public static void BatchRenderPreviews()
     {
         RenderOne("Level0", new float[] { 5f, 45f, 90f }, 8f);

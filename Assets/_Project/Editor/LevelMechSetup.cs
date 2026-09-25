@@ -140,7 +140,7 @@ public static class LevelMechSetup
     /// <summary>
     /// 菜单入口：保持"点一下就建关"的老行为（真正的活在同名的批处理入口里，见下）。
     /// </summary>
-    [MenuItem("Tools/呆呆史莱姆/▷ 建机关测试关 LevelMech", false, 18)]
+    [MenuItem("Tools/呆呆史莱姆/8 测试关/建机关测试关 LevelMech", false, 800)]
     public static void CreateMechLevelMenu()
     {
         BatchCreateMechLevel();

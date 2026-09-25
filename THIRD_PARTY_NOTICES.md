@@ -88,9 +88,9 @@ THE FONT SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
 
 | 类别 | 生成器 | 复现菜单 |
 |---|---|---|
-| 像素素材 / UI 图标 | `Assets/_Project/Editor/PixelArtGenerator.cs` | `Tools/呆呆史莱姆/▨ 生成像素素材` |
-| 象形图路牌（20 张，64×64） | `Assets/_Project/Editor/MuralGenerator.cs` | `Tools/呆呆史莱姆/▣ 生成象形图路牌` |
-| 音效（24 个 WAV） | `Assets/_Project/Editor/AudioGenerator.cs` | `Tools/呆呆史莱姆/♪ 生成音效素材` |
+| 像素素材 / UI 图标 | `Assets/_Project/Editor/PixelArtGenerator.cs` | `Tools/呆呆史莱姆/4 生成素材/像素素材` |
+| 象形图路牌（20 张，64×64） | `Assets/_Project/Editor/MuralGenerator.cs` | `Tools/呆呆史莱姆/4 生成素材/象形图路牌` |
+| 音效（24 个 WAV） | `Assets/_Project/Editor/AudioGenerator.cs` | `Tools/呆呆史莱姆/4 生成素材/音效素材` |
 
 > 这三条都是**程序化生成**：仓库里没有外部素材包，也就没有素材版权问题。要核对就打开对应的生成器脚本。
 

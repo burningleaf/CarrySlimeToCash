@@ -1,14 +1,14 @@
 // ---------------------------------------------------------------------------
 // SlimeDemoSetup.cs —— 编辑器自动化工具（只放在 Editor 文件夹里，不进游戏包）
 //
-// 用法：Unity 顶部菜单 → Tools → 呆呆史莱姆 → ⑤ 一键全做
+// 用法：Unity 顶部菜单 → Tools → 呆呆史莱姆 → 7 场景 → 从零搭建（建 Test_Auto）
 //
 // 它能替你做完这些事（每一步都幂等，可以反复点）：
-//   ① 初始化工程设置：11 个 Layer、11 个 Tag、Physics2D 碰撞矩阵
-//   ② 自动连接当前场景里所有空的引用字段（不会覆盖你已经拖好的）
-//   ③ 生成占位美术（1 张 16x16 白色方块，用颜色区分物体）
-//   ④ 生成一个全新的测试场景 Test_Auto.unity（不会动你现有的 Test.unity）
-//   ⑥ 体检报告：列出场景里还没连上的引用
+//   · 初始化工程设置：11 个 Layer、11 个 Tag、Physics2D 碰撞矩阵
+//   · 自动连接当前场景里所有空的引用字段（不会覆盖你已经拖好的）
+//   · 生成占位美术（1 张 16x16 白色方块，用颜色区分物体）
+//   · 生成一个全新的测试场景 Test_Auto.unity（不会动你现有的 Test.unity）
+//   · 体检报告：列出场景里还没连上的引用
 //
 // 注意：本文件属于编辑器工具，允许做场景内的批量扫描；游戏运行时脚本依然遵守
 //      "禁止 FindObjectOfType" 的约定 —— 这里用的是 scene.GetRootGameObjects()。
@@ -83,7 +83,7 @@ public static class SlimeDemoSetup
     ///   真正的实现（EnsureFolders / BuildTestScene / AutoWireActiveScene …）
     ///   都是普通 public 方法，被自动搭建钩子 SlimeDemoAutoRun 直接调用，那条路径上本来就没有弹窗。
     /// </summary>
-    [MenuItem("Tools/呆呆史莱姆/⑤ 一键全做（推荐）", false, 90)]
+    [MenuItem("Tools/呆呆史莱姆/7 场景/从零搭建（建 Test_Auto）", false, 700)]
     public static void RunAll()
     {
         if (!Application.isBatchMode)
@@ -121,7 +121,7 @@ public static class SlimeDemoSetup
     }
 
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
-    // [MenuItem("Tools/呆呆史莱姆/① 初始化工程设置（Layer/Tag/碰撞矩阵）", false, 101)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/初始化工程设置（Layer/Tag/碰撞矩阵）", false, 906)]
     public static void InitProjectSettings()
     {
         EnsureFolders();
@@ -131,7 +131,7 @@ public static class SlimeDemoSetup
     }
 
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
-    // [MenuItem("Tools/呆呆史莱姆/② 自动连接当前场景的引用", false, 102)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/自动连接当前场景引用", false, 907)]
     public static void AutoWireMenu()
     {
         int n = AutoWireActiveScene();
@@ -140,7 +140,7 @@ public static class SlimeDemoSetup
     }
 
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
-    // [MenuItem("Tools/呆呆史莱姆/③ 生成占位美术", false, 103)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/生成占位美术", false, 908)]
     public static void MakeArt()
     {
         Sprite s = CreateSquareSprite();
@@ -148,7 +148,7 @@ public static class SlimeDemoSetup
     }
 
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
-    // [MenuItem("Tools/呆呆史莱姆/④ 生成全新测试场景 Test_Auto", false, 104)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/生成测试场景 Test_Auto", false, 909)]
     public static void BuildSceneMenu()
     {
         Sprite s = CreateSquareSprite();
@@ -157,14 +157,14 @@ public static class SlimeDemoSetup
         ReportEmptyReferences();
     }
 
-    [MenuItem("Tools/呆呆史莱姆/⑥ 体检报告（列出没连上的引用）", false, 30)]
+    [MenuItem("Tools/呆呆史莱姆/7 场景/体检报告", false, 701)]
     public static void ReportMenu()
     {
         ReportEmptyReferences();
     }
 
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
-    // [MenuItem("Tools/呆呆史莱姆/⑧ 数值对齐：史莱姆重力 = 玩家重力", false, 108)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/数值对齐（史莱姆重力 = 玩家重力）", false, 911)]
     public static void AlignNumbersMenu()
     {
         AlignSlimeNumbers();
@@ -369,7 +369,7 @@ public static class SlimeDemoSetup
     {
         if (sprite == null)
         {
-            Debug.LogError("[呆呆史莱姆] 没有占位图，无法建场景。请先点 ③ 生成占位美术。");
+            Debug.LogError("[呆呆史莱姆] 没有占位图，无法建场景。请先跑 7 场景 → 从零搭建（建 Test_Auto）。");
             return;
         }
 
@@ -383,7 +383,7 @@ public static class SlimeDemoSetup
         int LAYER(string name)
         {
             int l = LayerMask.NameToLayer(name);
-            if (l < 0) Debug.LogError("[呆呆史莱姆] 找不到 Layer：" + name + "，请先点 ① 初始化工程设置");
+            if (l < 0) Debug.LogError("[呆呆史莱姆] 找不到 Layer：" + name + "，请先跑 7 场景 → 从零搭建（建 Test_Auto）");
             return l < 0 ? 0 : l;
         }
 
@@ -631,9 +631,9 @@ public static class SlimeDemoSetup
         return mask;
     }
 
-    // ======================= ◉ 关卡可视性检查 =======================
+    // ======================= 可视性检查 =======================
 
-    [MenuItem("Tools/呆呆史莱姆/◉ 关卡可视性检查（有没有东西在画面外）", false, 31)]
+    [MenuItem("Tools/呆呆史莱姆/7 场景/可视性检查", false, 702)]
     public static void CheckLevelVisibility()
     {
         Scene scene = SceneManager.GetActiveScene();
@@ -717,7 +717,7 @@ public static class SlimeDemoSetup
 
     /// <summary>菜单入口：一键美化画面（带确认框，因为它会覆盖 4 个场景的贴图引用与相机设置）。
     /// 确认框被 `!Application.isBatchMode` 包住：批处理不弹窗、默认放行。真实实现是无框的 ApplyVisualPolish()。</summary>
-    [MenuItem("Tools/呆呆史莱姆/✦ 一键美化画面（抗锯齿 + 相机 + 描边美术 + UI）", false, 91)]
+    [MenuItem("Tools/呆呆史莱姆/6 画面/美化画面", false, 604)]
     public static void ApplyVisualPolishMenu()
     {
         if (!Application.isBatchMode)
@@ -728,7 +728,7 @@ public static class SlimeDemoSetup
                 "  · 重画 Sprite_Box / Sprite_Circle / Sprite_Ground / UI_Panel（同路径覆盖，PPU 自动修正）\n" +
                 "  · 主菜单 / 选关 / Level1 / Level2 四个场景：换掉旧贴图引用 + 调相机抗锯齿等设置\n" +
                 "  · 会写盘保存这 4 个场景\n\n" +
-                "（UI 圆角要再点一次「✦✦ 一键美化全部」）要继续吗？",
+                "（UI 圆角要再点一次「6 画面 → 美化全部」）要继续吗？",
                 "美化", "取消");
             if (!go) return;
         }
@@ -772,12 +772,12 @@ public static class SlimeDemoSetup
 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
-        Debug.Log("[呆呆史莱姆] ========== 视觉美化完成（UI 需要再点一次 ⑭ 重建）==========");
+        Debug.Log("[呆呆史莱姆] ========== 视觉美化完成（UI 需要再点一次 9 脚手架 → 重建当前场景 UI）==========");
     }
 
     /// <summary>菜单入口：一键美化全部（画面 + 重建所有 UI）。带确认框，覆盖范围比 ✦ 更大。
     /// 确认框被 `!Application.isBatchMode` 包住：批处理不弹窗、默认放行。真实实现是无框的 ApplyFullPolish()。</summary>
-    [MenuItem("Tools/呆呆史莱姆/✦✦ 一键美化全部（画面 + 重建所有 UI）", false, 92)]
+    [MenuItem("Tools/呆呆史莱姆/6 画面/美化全部（含重建 UI）", false, 605)]
     public static void ApplyFullPolishMenu()
     {
         if (!Application.isBatchMode)
@@ -1112,7 +1112,7 @@ public static class SlimeDemoSetup
         }
         return AssetDatabase.LoadAssetAtPath<Sprite>(path);
     }
-    // ======================= ✚ 修复：中文字体 + 缺失引用 =======================
+    // ======================= 修复：中文字体 + 缺失引用 =======================
 
     /// <summary>
     /// 把场景里所有 TMP 文字的字体强制换成中文字体。
@@ -1177,7 +1177,7 @@ public static class SlimeDemoSetup
         }
     }
 
-    [MenuItem("Tools/呆呆史莱姆/✚ 修复全部场景（补缺失引用 + 修正中文字体）", false, 32)]
+    [MenuItem("Tools/呆呆史莱姆/7 场景/修复全部场景", false, 703)]
     public static void RepairAllScenesMenu()
     {
         RepairAllScenes();
@@ -1241,7 +1241,7 @@ public static class SlimeDemoSetup
         ReportBuildScenes();
         Debug.Log("[呆呆史莱姆] ========== 修复完成 ==========");
     }
-    // ======================= ★ 一键全部构建 =======================
+    // ======================= 一键全部构建（脚手架）=======================
 
     /// <summary>
     /// 把"重命名 Test→Level1、清理重复 UI、生成第二关、生成主菜单与关卡选择、注册 Build Settings"
@@ -1250,7 +1250,7 @@ public static class SlimeDemoSetup
     /// </summary>
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
     // ⚠ 它同时是 -executeMethod 的批处理入口（SlimeDemoSetup.BuildAll），所以这里绝不能加确认框。
-    // [MenuItem("Tools/呆呆史莱姆/★ 一键全部构建（重命名 + 清UI + 第二关 + 主菜单选关）", false, 99)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/一键全部构建（重命名 + 清UI + 第二关 + 主菜单选关）", false, 912)]
     public static void BuildAll()
     {
         Debug.Log("[呆呆史莱姆] ========== 一键全部构建 开始 ==========");
@@ -1306,7 +1306,7 @@ public static class SlimeDemoSetup
     // ======================= ⑬ 主菜单 + 关卡选择（C 阶段）=======================
 
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
-    // [MenuItem("Tools/呆呆史莱姆/⑭ 重建当前场景的 UI（清理重复的 HUD）", false, 114)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/重建当前场景 UI（清理重复 HUD）", false, 905)]
     public static void RebuildUiMenu()
     {
         BuildHud();
@@ -1317,7 +1317,7 @@ public static class SlimeDemoSetup
     }
 
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
-    // [MenuItem("Tools/呆呆史莱姆/⑬ 生成主菜单与关卡选择（并注册 Build Settings）", false, 113)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/生成主菜单与关卡选择（并注册 Build Settings）", false, 904)]
     public static void BuildMenusMenu()
     {
         BuildMenus();
@@ -1338,7 +1338,7 @@ public static class SlimeDemoSetup
 
         if (white == null)
         {
-            Debug.LogError("[呆呆史莱姆] 没有占位图，请先点 ③ 生成占位美术");
+            Debug.LogError("[呆呆史莱姆] 没有占位图，请先跑 7 场景 → 从零搭建（建 Test_Auto）");
             return;
         }
 
@@ -1623,7 +1623,7 @@ public static class SlimeDemoSetup
     // ======================= ⑫ 第二关：多层平台 + 水道 + 路径石 + 投掷深坑 =======================
 
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
-    // [MenuItem("Tools/呆呆史莱姆/⑫ 生成第二关 Level2（长关卡，带相机跟随）", false, 112)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/生成第二关 Level2（长关卡，带相机跟随）", false, 903)]
     public static void BuildLevel2Menu()
     {
         BuildLevel2();
@@ -1644,7 +1644,7 @@ public static class SlimeDemoSetup
         Sprite square = CreateSquareSprite();
         if (square == null)
         {
-            Debug.LogError("[呆呆史莱姆] 没有占位图，请先点 ③ 生成占位美术");
+            Debug.LogError("[呆呆史莱姆] 没有占位图，请先跑 7 场景 → 从零搭建（建 Test_Auto）");
             return;
         }
 
@@ -1744,7 +1744,7 @@ public static class SlimeDemoSetup
             if (spf != null)
             {
                 if (wpPrefab != null) spf.waypointPrefab = wpPrefab;
-                else Debug.LogWarning("[呆呆史莱姆] 找不到 WaypointMarker.prefab，引导石会失效（先点一次 ⑤ 一键全做）");
+                else Debug.LogWarning("[呆呆史莱姆] 找不到 WaypointMarker.prefab，引导石会失效（先跑一次 7 场景 → 从零搭建（建 Test_Auto））");
 
                 if (spf.waypointContainer == null)
                 {
@@ -1850,7 +1850,7 @@ public static class SlimeDemoSetup
     // ======================= ⑪ 暂停菜单 + 结算面板 =======================
 
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
-    // [MenuItem("Tools/呆呆史莱姆/⑪ 搭暂停菜单与结算面板", false, 111)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/搭暂停菜单与结算面板", false, 902)]
     public static void BuildPanelsMenu()
     {
         int n = BuildPanels();
@@ -1874,7 +1874,7 @@ public static class SlimeDemoSetup
         }
         if (canvasGo == null)
         {
-            Debug.LogError("[呆呆史莱姆] 场景里没有 UICanvas，请先点 ⑩ 搭 HUD 与物品栏 UI");
+            Debug.LogError("[呆呆史莱姆] 场景里没有 UICanvas，请先跑 9 脚手架 → 搭 HUD 与物品栏 UI");
             return 0;
         }
 
@@ -2017,7 +2017,7 @@ public static class SlimeDemoSetup
     // ======================= ⑩ HUD 与物品栏 =======================
 
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
-    // [MenuItem("Tools/呆呆史莱姆/⑩ 搭 HUD 与物品栏 UI", false, 110)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/搭 HUD 与物品栏 UI", false, 901)]
     public static void BuildHudMenu()
     {
         int n = BuildHud();
@@ -2055,7 +2055,7 @@ public static class SlimeDemoSetup
         Sprite iconWhistle = CreateColorSprite("Icon_Whistle", new Color(1f, 0.85f, 0.25f));
         Sprite iconStone = CreateColorSprite("Icon_GuideStone", new Color(0.30f, 0.95f, 0.95f));
         Sprite iconSlot4 = CreateColorSprite("Icon_Slot4", new Color(0.65f, 0.45f, 0.95f));
-        // 跳跃云朵瓶（第 4 格）：像素画由 Tools/呆呆史莱姆/▨ 生成像素素材 产出同名 PNG；这里只做"没有图时的浅蓝占位"
+        // 跳跃云朵瓶（第 4 格）：像素画由 Tools/呆呆史莱姆/4 生成素材/像素素材 产出同名 PNG；这里只做"没有图时的浅蓝占位"
         Sprite iconCloudBottle = CreateColorSprite("Icon_CloudBottle", new Color(0.77f, 0.91f, 0.96f));
 
         // ---------- Canvas ----------
@@ -2451,10 +2451,10 @@ public static class SlimeDemoSetup
         img.raycastTarget = raycastTarget;
         return img;
     }
-    // ======================= ⑨ 往当前场景补关卡元素 =======================
+    // ======================= 往当前场景补关卡元素（脚手架）=======================
 
     // 已从菜单隐藏（菜单剪枝）：一次性脚手架，方法体保留，需要时恢复下面这行 MenuItem。
-    // [MenuItem("Tools/呆呆史莱姆/⑨ 往当前场景补关卡元素（尖刺/金币/回血球/收购站）", false, 109)]
+    // [MenuItem("Tools/呆呆史莱姆/9 脚手架（默认隐藏）/往当前场景补关卡元素（尖刺/金币/回血球/收购站）", false, 900)]
     public static void AddLevelElementsMenu()
     {
         int n = AddLevelElements();
@@ -2473,7 +2473,7 @@ public static class SlimeDemoSetup
         Sprite square = CreateSquareSprite();
         if (square == null)
         {
-            Debug.LogError("[呆呆史莱姆] 没有占位图，请先点 ③ 生成占位美术");
+            Debug.LogError("[呆呆史莱姆] 没有占位图，请先跑 7 场景 → 从零搭建（建 Test_Auto）");
             return 0;
         }
 
@@ -2925,7 +2925,7 @@ public static class SlimeDemoSetup
         return v.ToString();
     }
 
-    // ======================= ⑥ 体检报告 =======================
+    // ======================= 体检报告 =======================
 
     /// <summary>当前场景里有没有我们的玩家对象。</summary>
     public static bool ActiveSceneHasPlayer()

@@ -10,7 +10,7 @@ using UnityEngine;
 ///       · baseSize 是【关卡基准视野】（= 关卡数据 meta.cameraSize）。自动拉远只在此基础上放大，绝不改它。
 ///         导出器读的就是 baseSize —— 不能读 Camera.orthographicSize：导出那一刻相机可能正在拉远，
 ///         读当下值会把"拉远后的尺寸"永久写进 JSON，而 META 比对行含 cameraSize（LevelData.cs:388-391），
-///         ⓪-3 往返就会报「不一致 ❌」。
+///         1 关卡数据 → 往返一致性检查 就会报「不一致 ❌」。
 ///       · 拉远【上限】= min(baseSize × maxZoomOutMultiplier, 整关一屏所需尺寸)，取较小者。
 ///         后半条只在关卡启用相机边界（useBounds）时才有意义 —— 越过"整关一屏"之后多出来的视野
 ///         全是世界外空白（Level3 实测拉到 4.07× 时天空占 54%）。useBounds = false 的关卡没有"整关"

@@ -12,11 +12,11 @@ using UnityEngine;
 ///   让命令行一条顶三条，也让人不容易把顺序搞错。
 ///
 /// 用法：
-///   菜单 Tools → 呆呆史莱姆 → ♪♪ 一键生成全部素材（美术 + 音效 + 接线）   ← 人点，带确认框
+///   菜单 Tools → 呆呆史莱姆 → 4 生成素材 → 全部素材（含接线）   ← 人点，带确认框
 ///   Unity.exe -batchmode -quit -projectPath ... -executeMethod Flow5Tools.BatchGenerateAllAssets   ← 机器用，无弹窗
 ///
 /// 现在美术那一步（PixelArtGenerator）会在写盘末尾自动跑一次 VisualFix.BatchFixImportPpu()，
-/// 所以「一键生成全部素材」之后 PPU 一定是对的，不用再手动点「▧ 修正导入 PPU」。
+/// 所以「一键生成全部素材」之后 PPU 一定是对的，不用再手动点「6 画面 → 修正 PPU」。
 /// </summary>
 public static class Flow5Tools
 {
@@ -26,7 +26,7 @@ public static class Flow5Tools
     ///   确认框自身也被 `!Application.isBatchMode` 包住（对齐 LevelSolver.cs 里既有的写法）：
     ///   批处理模式下不弹窗、默认放行，绝不会把 `-executeMethod` 卡住。
     /// </summary>
-    [MenuItem("Tools/呆呆史莱姆/♪♪ 一键生成全部素材（美术 + 音效 + 接线）", false, 93)]
+    [MenuItem("Tools/呆呆史莱姆/4 生成素材/全部素材（含接线）", false, 404)]
     public static void GenerateAllAssetsMenu()
     {
         if (!Application.isBatchMode)

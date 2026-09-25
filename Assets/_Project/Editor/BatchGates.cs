@@ -14,7 +14,7 @@ using UnityEngine;
 ///
 /// 怎么跑：
 ///   批处理：Unity.exe -batchmode -quit -projectPath &lt;工程&gt; -executeMethod BatchGates.RunAll -logFile -
-///   编辑器：菜单 Tools/呆呆史莱姆/▨▨ 全量门禁（四门一次跑完）  —— 会先弹确认框
+///   编辑器：菜单 Tools/呆呆史莱姆/3 门禁/跑全量门禁（四门）  —— 会先弹确认框
 ///
 /// 判据（**真结论**，各门自己给）：
 ///   1/4 求解器自检  LevelSolver.BatchSolverSelfTest()     → 失败条数
@@ -38,10 +38,10 @@ public static class BatchGates
     // ---------------- 可调项（数值不写死在方法里）----------------
 
     /// <summary>菜单优先级（30~37 是诊断组，这里接在它后面）。</summary>
-    public const int MenuPriority = 38;
+    public const int MenuPriority = 300;
 
     /// <summary>菜单路径（逐字固定，方便照抄）。</summary>
-    public const string MenuPath = "Tools/呆呆史莱姆/▨▨ 全量门禁（四门一次跑完）";
+    public const string MenuPath = "Tools/呆呆史莱姆/3 门禁/跑全量门禁（四门）";
 
     /// <summary>日志统一前缀（脚本 grep 用）。</summary>
     public const string Tag = "[GATES] ";

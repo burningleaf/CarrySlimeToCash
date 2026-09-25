@@ -1,0 +1,39 @@
+{
+    "formatVersion": 1,
+    "meta": {
+        "levelId": "MainMenu",
+        "displayName": "MainMenu",
+        "parTime": 50.0,
+        "barMaxOverride": 0,
+        "starRatios": [
+            0.6000000238418579,
+            0.8999999761581421,
+            1.100000023841858
+        ],
+        "startStones": 3,
+        "coinValue": 10,
+        "itemGrants": [
+            true,
+            true,
+            true,
+            true
+        ],
+        "levelIndex": 1,
+        "saveProgress": true,
+        "useCameraBounds": true,
+        "camMinX": -10.0,
+        "camMinY": -6.0,
+        "camMaxX": 150.0,
+        "camMaxY": 12.0,
+        "cameraSize": 6.5,
+        "hasSpawn": false,
+        "playerX": 0.0,
+        "playerY": 0.0,
+        "slimeX": 0.0,
+        "slimeY": 0.0
+    },
+    "terrain": [],
+    "objects": [],
+    "links": [],
+    "murals": []
+}

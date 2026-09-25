@@ -28,7 +28,7 @@
 //      而 Paint() 返回的是另一个没人写过的 Drawing 的缓冲区 → 23 张图全是全透明（97 字节）。
 //
 // 用法：
-//   菜单  Tools / 呆呆史莱姆 / ▨ 生成像素素材（会重写 Art，PPU 自动修正）   ← 人用
+//   菜单  Tools / 呆呆史莱姆 / 4 生成素材 / 像素素材   ← 人用
 //   Unity.exe -batchmode -quit -executeMethod PixelArtGenerator.BatchGeneratePixelArt   ← 机器用
 //   （流5 的一键入口 Flow5Tools.BatchGenerateAllAssets 会转调本方法）
 //
@@ -154,7 +154,7 @@ public static class PixelArtGenerator
     // 六、入口
     // =======================================================================
 
-    [MenuItem("Tools/呆呆史莱姆/▨ 生成像素素材（会重写 Art，PPU 自动修正）", false, 20)]
+    [MenuItem("Tools/呆呆史莱姆/4 生成素材/像素素材", false, 400)]
     public static void GenerateAllMenu()
     {
         int n = GenerateAll();

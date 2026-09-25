@@ -21,14 +21,14 @@ public static class AudioGenerator
     /// 现在收进主菜单「呆呆史莱姆」下，与美术生成器并列。
     /// 批处理入口 `AudioGenerator.BatchGenerateAudio` 与 `菜单 GenerateAudioMenu` 的分工不变。
     /// </summary>
-    private const string MenuPath = "Tools/呆呆史莱姆/♪ 生成音效素材";
+    private const string MenuPath = "Tools/呆呆史莱姆/4 生成素材/音效素材";
     private const double DefAttack = 0.008;
     private const double DefDecay = 0.120;
     private const double DefSustain = 0.002;
     private const double DefRelease = 0.015;
 
 #if !AUDIOGEN_VERIFY
-    [MenuItem(MenuPath, false, 21)]
+    [MenuItem(MenuPath, false, 403)]
     public static void GenerateAudioMenu()
     {
         int n = GenerateAll();
